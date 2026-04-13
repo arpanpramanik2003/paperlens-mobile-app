@@ -45,6 +45,13 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
     return ApiService(baseUrl: widget.baseUrl, jwtToken: widget.getJwtToken());
   }
 
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<T> _withTokenRetry<T>(
     Future<T> Function(ApiService api) request,
   ) async {
@@ -156,15 +163,7 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
   }
 
   Future<void> _saveBrief(int index) async {
-    final details = _ideaDetails[index];
-    if (details == null) {
-      setState(() => _status = 'Open idea details before saving.');
-      return;
-    }
-    if (widget.jwtToken.trim().isEmpty) {
-      setState(() => _status = 'Add JWT token in Setup to save items.');
-      return;
-    }
+    var details = _ideaDetails[index];
 
     final idea = _ideas[index];
     setState(() {
@@ -173,23 +172,70 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
     });
 
     try {
+      await widget.ensureToken();
+      final token = widget.getJwtToken().trim();
+      if (token.isEmpty) {
+        setState(() => _status = 'Add JWT token in Setup to save items.');
+        _showSnack('Could not save: missing session token.');
+        return;
+      }
+
+      if (details == null) {
+        final data = await _withTokenRetry(
+          (api) => api.expandProblem(
+            domain: _domainController.text.trim(),
+            subdomain: _subdomainController.text.trim(),
+            complexity: _complexity,
+            idea: idea,
+          ),
+        );
+
+        details = {
+          'title': (data['title'] ?? idea['title'] ?? 'Untitled idea')
+              .toString(),
+          'problem_statement': (data['problem_statement'] ?? idea['desc'] ?? '')
+              .toString(),
+          'objective': (data['objective'] ?? '').toString(),
+          'step_by_step': (data['step_by_step'] as List<dynamic>? ?? const []),
+          'datasets': (data['datasets'] as List<dynamic>? ?? const []),
+          'evaluation_metrics':
+              (data['evaluation_metrics'] as List<dynamic>? ?? const []),
+          'expected_outcomes':
+              (data['expected_outcomes'] as List<dynamic>? ?? const []),
+        };
+
+        if (mounted) {
+          setState(() {
+            _ideaDetails[index] = details!;
+            _expandedIndex = index;
+          });
+        }
+      }
+
+      final detailsForSave = details;
+      if (detailsForSave == null) {
+        throw Exception('Could not prepare idea details for saving.');
+      }
+
       await _withTokenRetry(
         (api) => api.createSavedItem(
           section: 'problem_generator',
-          title: (details['title'] ?? 'Problem Brief').toString(),
-          summary: (details['problem_statement'] ?? '').toString(),
+          title: (detailsForSave['title'] ?? 'Problem Brief').toString(),
+          summary: (detailsForSave['problem_statement'] ?? '').toString(),
           payload: {
             'domain': _domainController.text.trim(),
             'subdomain': _subdomainController.text.trim(),
             'complexity': _complexity,
             'idea': idea,
-            'brief': details,
+            'brief': detailsForSave,
           },
         ),
       );
       setState(() => _status = 'Problem brief saved.');
+      _showSnack('Idea saved successfully.');
     } catch (e) {
       setState(() => _status = 'Save failed: $e');
+      _showSnack('Save failed. Please try again.');
     } finally {
       if (mounted) {
         setState(() => _saving = false);

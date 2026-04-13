@@ -9,6 +9,13 @@ class _StructuredTextView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final headingColor = isDark
+        ? const Color(0xFFE6F3F0)
+        : const Color(0xFF0E3C36);
+    final bodyColor = isDark
+        ? const Color(0xFFD1E5E0)
+        : const Color(0xFF2E4742);
     final lines = text.split('\n');
     final spans = <TextSpan>[];
 
@@ -19,9 +26,9 @@ class _StructuredTextView extends StatelessWidget {
         spans.add(
           TextSpan(
             text: '$heading\n',
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w800,
-              color: Color(0xFF0E3C36),
+              color: headingColor,
               height: 1.45,
             ),
           ),
@@ -30,9 +37,9 @@ class _StructuredTextView extends StatelessWidget {
         spans.add(
           TextSpan(
             text: '$line\n',
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w500,
-              color: Color(0xFF2E4742),
+              color: bodyColor,
               height: 1.45,
             ),
           ),
@@ -175,10 +182,17 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
     required bool isUser,
     required String text,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bubbleColor = isUser
         ? const Color(0xFF0E5D52)
+        : isDark
+        ? const Color(0xFF1A2D2A)
         : const Color(0xFFF2F7F6);
-    final textColor = isUser ? Colors.white : const Color(0xFF1F3A35);
+    final textColor = isUser
+        ? Colors.white
+        : isDark
+        ? const Color(0xFFE2F0ED)
+        : const Color(0xFF1F3A35);
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -197,7 +211,12 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
             ),
             border: isUser
                 ? null
-                : Border.all(color: const Color(0xFFDDE8E5), width: 1),
+                : Border.all(
+                    color: isDark
+                        ? const Color(0xFF30524E)
+                        : const Color(0xFFDDE8E5),
+                    width: 1,
+                  ),
           ),
           child: SelectableText(
             text,
@@ -216,9 +235,16 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
   @override
   Widget build(BuildContext context) {
     final questionAnchorKey = GlobalKey();
-    const readableTitleColor = Color(0xFF163A34);
-    const readableBodyColor = Color(0xFF2B4A44);
-    const inputBorderColor = Color(0xFFBFD3CF);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final readableTitleColor = isDark
+        ? const Color(0xFFE6F2EF)
+        : const Color(0xFF163A34);
+    final readableBodyColor = isDark
+        ? const Color(0xFFD6E9E5)
+        : const Color(0xFF2B4A44);
+    final inputBorderColor = isDark
+        ? const Color(0xFF3A5F59)
+        : const Color(0xFFBFD3CF);
     final currentLineCount =
         '\n'.allMatches(widget.questionController.text).length + 1;
     final inputMinHeight = 48.0;
@@ -294,13 +320,17 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFEAF4F2),
+                color: isDark
+                    ? const Color(0xFF1C302D)
+                    : const Color(0xFFEAF4F2),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 'Active document: ${widget.docId}',
-                style: const TextStyle(
-                  color: Color(0xFF0D4D44),
+                style: TextStyle(
+                  color: isDark
+                      ? const Color(0xFFE0F0ED)
+                      : const Color(0xFF0D4D44),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -318,12 +348,20 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FBFB),
+                color: isDark
+                    ? const Color(0xFF142523)
+                    : const Color(0xFFF8FBFB),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE0E8E8)),
-                boxShadow: const [
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFF2C4A46)
+                      : const Color(0xFFE0E8E8),
+                ),
+                boxShadow: [
                   BoxShadow(
-                    color: Color(0x10004D40),
+                    color: isDark
+                        ? const Color(0x16000000)
+                        : const Color(0x10004D40),
                     blurRadius: 9,
                     offset: Offset(0, 4),
                   ),
@@ -336,17 +374,25 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF2F8F7),
+                color: isDark
+                    ? const Color(0xFF162B28)
+                    : const Color(0xFFF2F8F7),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFDCE9E6)),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFF31514C)
+                      : const Color(0xFFDCE9E6),
+                ),
               ),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Need to ask a follow-up quickly?',
                       style: TextStyle(
-                        color: Color(0xFF2B4E48),
+                        color: isDark
+                            ? const Color(0xFFD8ECE8)
+                            : const Color(0xFF2B4E48),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -369,7 +415,10 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
               ),
             ),
             const SizedBox(height: 10),
-            const Divider(height: 1, color: Color(0xFFDCE6E4)),
+            Divider(
+              height: 1,
+              color: isDark ? const Color(0xFF30514C) : const Color(0xFFDCE6E4),
+            ),
           ],
           const SizedBox(height: 12),
           Container(
@@ -378,9 +427,13 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
             height: 460,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFFAFCFC),
+              color: isDark ? const Color(0xFF111F1D) : const Color(0xFFFAFCFC),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFDCE8E5)),
+              border: Border.all(
+                color: isDark
+                    ? const Color(0xFF2B4944)
+                    : const Color(0xFFDCE8E5),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,7 +454,7 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
                             child: Text(
                               'Start a conversation by asking your first question about the analyzed paper.',
                               style: TextStyle(
-                                color: Color(0xFF607D78),
+                                color: Color(0xFFA3BDB8),
                                 fontWeight: FontWeight.w500,
                               ),
                               textAlign: TextAlign.center,
@@ -434,16 +487,20 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
                                     vertical: 9,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFEAF4F2),
+                                    color: isDark
+                                        ? const Color(0xFF1B2F2B)
+                                        : const Color(0xFFEAF4F2),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
                                         'Assistant is typing',
                                         style: TextStyle(
-                                          color: Color(0xFF2A4A44),
+                                          color: isDark
+                                              ? Color(0xFFE0F0ED)
+                                              : Color(0xFF2A4A44),
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -457,7 +514,12 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
                         ),
                 ),
                 const SizedBox(height: 8),
-                const Divider(height: 1, color: Color(0xFFDCE6E4)),
+                Divider(
+                  height: 1,
+                  color: isDark
+                      ? const Color(0xFF30514C)
+                      : const Color(0xFFDCE6E4),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -471,27 +533,33 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
                           controller: widget.questionController,
                           minLines: 1,
                           maxLines: 4,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: readableBodyColor,
                             fontWeight: FontWeight.w500,
                           ),
                           cursorColor: const Color(0xFF0E5D52),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             hintText:
                                 'Example: What are the main limitations and future directions?',
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(
+                            contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 12,
                             ),
-                            hintStyle: TextStyle(color: Color(0xFF6D8A84)),
+                            hintStyle: TextStyle(
+                              color: isDark
+                                  ? const Color(0xFF93AEA8)
+                                  : const Color(0xFF6D8A84),
+                            ),
                             filled: true,
-                            fillColor: Color(0xFFFFFFFF),
-                            border: OutlineInputBorder(),
+                            fillColor: isDark
+                                ? const Color(0xFF1B2F2B)
+                                : const Color(0xFFFFFFFF),
+                            border: const OutlineInputBorder(),
                             enabledBorder: OutlineInputBorder(
                               borderSide: BorderSide(color: inputBorderColor),
                             ),
-                            focusedBorder: OutlineInputBorder(
+                            focusedBorder: const OutlineInputBorder(
                               borderSide: BorderSide(
                                 color: Color(0xFF0E5D52),
                                 width: 1.4,
