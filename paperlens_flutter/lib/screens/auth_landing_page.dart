@@ -197,33 +197,62 @@ class _AuthLandingPageState extends State<AuthLandingPage>
   }
 }
 
-class _AuthEntryPage extends StatelessWidget {
+class _AuthEntryPage extends StatefulWidget {
   const _AuthEntryPage({required this.mode});
 
   final String mode;
 
   @override
+  State<_AuthEntryPage> createState() => _AuthEntryPageState();
+}
+
+class _AuthEntryPageState extends State<_AuthEntryPage> {
+  void _dismissWhenSignedIn() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final auth = ClerkAuth.of(context, listen: false);
+      if (auth.isSignedIn && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(title: Text(mode)),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Continue with Google or email using Clerk.',
-                style: theme.textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 16),
-              const ClerkAuthentication(),
-            ],
+    _dismissWhenSignedIn();
+
+    return ClerkAuthBuilder(
+      signedInBuilder: (context, authState) {
+        _dismissWhenSignedIn();
+        return const Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
           ),
-        ),
-      ),
+        );
+      },
+      signedOutBuilder: (context, authState) {
+        return Scaffold(
+          appBar: AppBar(title: Text(widget.mode)),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Continue with Google or email using Clerk.',
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 16),
+                  const ClerkAuthentication(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

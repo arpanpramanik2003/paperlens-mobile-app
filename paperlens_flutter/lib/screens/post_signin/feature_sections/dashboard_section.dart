@@ -19,9 +19,21 @@ class PostSigninDashboardSection extends StatelessWidget {
     if (value.contains('paper')) return Icons.description_rounded;
     if (value.contains('user')) return Icons.group_rounded;
     if (value.contains('analysis')) return Icons.analytics_rounded;
+    if (value.contains('idea') || value.contains('problem')) {
+      return Icons.lightbulb_rounded;
+    }
+    if (value.contains('gap')) return Icons.search_rounded;
+    if (value.contains('citation') || value.contains('cite')) {
+      return Icons.auto_graph_rounded;
+    }
     if (value.contains('saved')) return Icons.bookmark_rounded;
     if (value.contains('session')) return Icons.timer_rounded;
-    if (value.contains('plan')) return Icons.science_rounded;
+    if (value.contains('plan') || value.contains('experiment')) {
+      return Icons.science_rounded;
+    }
+    if (value.contains('dataset') || value.contains('benchmark')) {
+      return Icons.dataset_rounded;
+    }
     return Icons.auto_graph_rounded;
   }
 
@@ -52,6 +64,7 @@ class PostSigninDashboardSection extends StatelessWidget {
         );
       },
       child: Container(
+        constraints: const BoxConstraints(minHeight: 132),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -90,11 +103,16 @@ class PostSigninDashboardSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF4B6560),
-                fontWeight: FontWeight.w600,
+            SizedBox(
+              height: 34,
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF4B6560),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
