@@ -97,8 +97,16 @@ PaperLens AI uses a decoupled client-server architecture, highly optimized for d
 Run the SQL definitions from `backend/supabase_migration.sql` in your Supabase SQL Editor. This establishes the `paper_chunks` schema and `match_chunks` RPC vector matching algorithm.
 
 ### 2) Backend Setup
+Backend is **not removed**. The API is still **FastAPI**, deployed on Render, and used by the Flutter app via `API_BASE_URL`.
+
+Backend source code is maintained in this repository:
+- https://github.com/arpanpramanik2003/PaperLens-AI/tree/master/backend
+
+If you want the backend code, get it from the link above.
+
 ```powershell
-cd backend
+git clone https://github.com/arpanpramanik2003/PaperLens-AI.git
+cd PaperLens-AI/backend
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -115,6 +123,9 @@ SEMANTIC_SCHOLAR_API_KEY=...
 ```
 
 Run server: `uvicorn app.main:app --reload`
+
+Production backend currently used by the Flutter app:
+- `https://paperlens-ai.onrender.com`
 
 ### 3) Mobile App Setup (Flutter)
 ```powershell
