@@ -245,11 +245,6 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
     final inputBorderColor = isDark
         ? const Color(0xFF3A5F59)
         : const Color(0xFFBFD3CF);
-    final currentLineCount =
-        '\n'.allMatches(widget.questionController.text).length + 1;
-    final inputMinHeight = 48.0;
-    final inputHeight = (inputMinHeight + ((currentLineCount - 1) * 18.0))
-        .clamp(inputMinHeight, 120.0);
 
     return PostSigninSectionCard(
       title: 'Paper Analyzer Studio',
@@ -525,10 +520,8 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 140),
-                        curve: Curves.easeOut,
-                        constraints: BoxConstraints(minHeight: inputHeight),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 48),
                         child: TextField(
                           controller: widget.questionController,
                           minLines: 1,
@@ -539,8 +532,7 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
                           ),
                           cursorColor: const Color(0xFF0E5D52),
                           decoration: InputDecoration(
-                            hintText:
-                                'Example: What are the main limitations and future directions?',
+                            hintText: 'Ask',
                             isDense: true,
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12,

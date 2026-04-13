@@ -271,7 +271,7 @@ class _MigrationStepOnePageState extends State<MigrationStepOnePage>
         _dashboard = data;
       });
     } catch (e) {
-      _showError('Dashboard error: $e');
+      _showError(_friendlyError(e, action: 'Dashboard load'));
     } finally {
       if (mounted) {
         setState(() => _loadingDashboard = false);
@@ -308,7 +308,7 @@ class _MigrationStepOnePageState extends State<MigrationStepOnePage>
         _chatMessages = restoredThread;
       });
     } catch (e) {
-      _showError('Analyze failed: $e');
+      _showError(_friendlyError(e, action: 'Analysis'));
     } finally {
       if (mounted) {
         setState(() => _loadingAnalyze = false);
@@ -357,13 +357,17 @@ class _MigrationStepOnePageState extends State<MigrationStepOnePage>
     } catch (e) {
       final failedThread = [
         ...pendingThread,
-        {'role': 'assistant', 'content': 'I ran into an error: $e'},
+        {
+          'role': 'assistant',
+          'content':
+              'I ran into a temporary issue while answering. Please try again in a moment.',
+        },
       ];
       _persistThreadForDoc(_docId, failedThread);
       setState(() {
         _chatMessages = failedThread;
       });
-      _showError('Ask failed: $e');
+      _showError(_friendlyError(e, action: 'Question answer'));
     } finally {
       if (mounted) {
         setState(() => _loadingAsk = false);
@@ -390,12 +394,54 @@ class _MigrationStepOnePageState extends State<MigrationStepOnePage>
         _planSteps = (data['steps'] as List<dynamic>? ?? const []);
       });
     } catch (e) {
-      _showError('Plan failed: $e');
+      _showError(_friendlyError(e, action: 'Plan generation'));
     } finally {
       if (mounted) {
         setState(() => _loadingPlanner = false);
       }
     }
+  }
+
+  String _friendlyError(Object error, {required String action}) {
+    if (error is ApiException) {
+      final raw = error.message.trim();
+      final lower = raw.toLowerCase();
+
+      final docxRelationshipIssue =
+          lower.contains('officedocument/2006/relationships/officedocument') ||
+          (lower.contains('relationship') && lower.contains('officedocument'));
+      if (docxRelationshipIssue) {
+        return 'This DOCX file could not be parsed. Please re-save it as a standard .docx in Microsoft Word, or upload a PDF instead.';
+      }
+
+      if (error.statusCode == 401) {
+        return 'Your session expired. Please sign in again.';
+      }
+
+      if (error.statusCode == 413) {
+        return 'The file is too large. Please upload a smaller file.';
+      }
+
+      if (error.statusCode == 415) {
+        return 'Unsupported file type. Please upload a PDF or DOCX file.';
+      }
+
+      if (error.statusCode >= 500) {
+        return '$action failed due to a server issue. Please try again.';
+      }
+
+      return '$action failed. $raw';
+    }
+
+    if (error is SocketException) {
+      return 'No internet connection. Please check your network and try again.';
+    }
+
+    if (error is TimeoutException) {
+      return '$action timed out. Please try again.';
+    }
+
+    return '$action failed. Please try again.';
   }
 
   Future<void> _savePlan() async {
