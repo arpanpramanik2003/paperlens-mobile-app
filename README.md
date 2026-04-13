@@ -1,7 +1,7 @@
 # PaperLens AI
 
 <p align="center">
-  <img src="frontend/public/demo.png" alt="PaperLens AI Landing Page" width="100%" />
+  <img src="paperlens_flutter/assets/branding/demo.jpeg" alt="PaperLens Flutter Demo" width="100%" />
 </p>
 
 <p align="center">
@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript-61DAFB?logo=react&logoColor=black" alt="Frontend" />
+  <img src="https://img.shields.io/badge/Mobile-Flutter-02569B?logo=flutter&logoColor=white" alt="Mobile Flutter" />
   <img src="https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi&logoColor=white" alt="Backend" />
   <img src="https://img.shields.io/badge/Vector_DB-pgvector%20(Supabase)-3ECF8E?logo=supabase&logoColor=white" alt="Supabase pgvector" />
   <img src="https://img.shields.io/badge/LLM-Groq-F55036" alt="LLM" />
@@ -59,7 +59,7 @@ Instead of just chatting with a PDF, PaperLens AI provides structured workflows:
 PaperLens AI uses a decoupled client-server architecture, highly optimized for deployment environments with memory constraints (like Render's 500MB tier).
 
 ### High-Level Data Flow
-1. **Frontend:** React/TypeScript + Tailwind + Framer Motion. Handled by **Clerk** for authentication.
+1. **Mobile App:** Flutter (Dart) client for Android/iOS. Handled by **Clerk** for authentication.
 2. **API Gateway:** Calls are made via JWT Bearer tokens to the **FastAPI** backend.
 3. **Data Extraction:** PDFs are streamed through `PyMuPDF` via generators keeping memory overhead negligible.
 4. **Vector Storage:** Chunks are embedded (`all-MiniLM-L6-v2`) and upserted to remote **Supabase pgvector** immediately. The heavy `torch` engine is lazy-loaded to prevent idle server bloating.
@@ -75,7 +75,7 @@ PaperLens AI uses a decoupled client-server architecture, highly optimized for d
 
 | Layer | Technologies |
 |---|---|
-| **Frontend** | React, Vite, TypeScript, Tailwind CSS, shadcn/ui, framer-motion |
+| **Mobile App** | Flutter, Dart |
 | **Backend** | Python 3.10+, FastAPI, Uvicorn, SQLAlchemy |
 | **PDF Extraction**| PyMuPDF (fitz) |
 | **Authentication** | Clerk JWT |
@@ -89,7 +89,7 @@ PaperLens AI uses a decoupled client-server architecture, highly optimized for d
 
 ### Prerequisites
 - Python 3.10+
-- Node.js 18+
+- Flutter SDK (stable channel)
 - Supabase Project (with `pgvector` enabled)
 - Clerk, Groq, and Semantic Scholar API keys.
 
@@ -116,26 +116,22 @@ SEMANTIC_SCHOLAR_API_KEY=...
 
 Run server: `uvicorn app.main:app --reload`
 
-### 3) Frontend Setup
+### 3) Mobile App Setup (Flutter)
 ```powershell
-cd frontend
-npm install
+cd paperlens_flutter
+flutter pub get
 ```
 
-Create `frontend/.env.local`:
-```env
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
-VITE_API_URL=http://localhost:8000
-```
+Set your API/Auth values in the Flutter app configuration (`lib/services` and related config files) as required by your environment.
 
-Run client: `npm run dev`
+Run app: `flutter run`
 
 ---
 
 ## 🌍 Deployment
 
 - **Backend:** Designed for Render. (⚠️ Keep `ENABLE_VECTOR_RETRIEVAL=false` for idle memory safety).
-- **Frontend:** Designed for Vercel.
+- **Mobile App:** Built and released from the Flutter project (`paperlens_flutter`).
 
 ---
 
