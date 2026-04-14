@@ -139,6 +139,16 @@ Run app: `flutter run`
 
 ---
 
+## 📦 Download Android APK
+
+If you just want to install and try the app, download the prebuilt APK directly from this repository:
+
+- `paperlens_flutter/app-release.apk`
+
+On GitHub, open that file and click **Download raw file** to download the APK.
+
+---
+
 ## 🌍 Deployment
 
 - **Backend:** Designed for Render. (⚠️ Keep `ENABLE_VECTOR_RETRIEVAL=false` for idle memory safety).

@@ -276,6 +276,34 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
     return items;
   }
 
+  String _authorsLine(Map<String, dynamic> entry) {
+    final authors = (entry['authors'] as List<dynamic>? ?? const [])
+        .map((author) => author.toString().trim())
+        .where((author) => author.isNotEmpty)
+        .toList(growable: false);
+    if (authors.isEmpty) return 'Unknown authors';
+    return authors.join(', ');
+  }
+
+  String _venueYearLine(Map<String, dynamic> entry) {
+    final venue = (entry['venue'] ?? '').toString().trim();
+    final year = (entry['year'] ?? '').toString().trim();
+
+    final parts = <String>[];
+    if (venue.isNotEmpty) parts.add(venue);
+    if (year.isNotEmpty && year != 'null') parts.add(year);
+
+    if (parts.isEmpty) return 'Unknown publication';
+    if (parts.length == 1) return parts.first;
+    return '${parts.first} • ${parts.last}';
+  }
+
+  String _paperDisplaySubtitle(Map<String, dynamic> entry) {
+    final authors = _authorsLine(entry);
+    final publication = _venueYearLine(entry);
+    return '$authors\n$publication';
+  }
+
   Future<void> _openPaperUrl(String url) async {
     final uri = Uri.tryParse(url.trim());
     if (uri == null) {
@@ -959,11 +987,23 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${(entry['year'] ?? '-').toString()} • citations: ${(entry['citation_count'] ?? '0').toString()}',
+                                _paperDisplaySubtitle(entry),
                                 style: TextStyle(
                                   color: colorScheme.onSurface.withValues(
                                     alpha: 0.78,
                                   ),
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Citations: ${(entry['citation_count'] ?? '0').toString()}',
+                                style: TextStyle(
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.72,
+                                  ),
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
