@@ -185,6 +185,7 @@ class _DatasetBenchmarkTabState extends State<DatasetBenchmarkTab> {
     Map<String, dynamic>? details,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -264,8 +265,19 @@ class _DatasetBenchmarkTabState extends State<DatasetBenchmarkTab> {
                 children: tags
                     .map(
                       (tag) => Chip(
-                        label: Text(tag),
-                        backgroundColor: const Color(0xFFEAF3F2),
+                        label: Text(
+                          tag,
+                          style: TextStyle(
+                            color: isDark
+                                ? colorScheme.onSecondaryContainer
+                                : const Color(0xFF2D4A45),
+                          ),
+                        ),
+                        backgroundColor: isDark
+                            ? colorScheme.secondaryContainer.withValues(
+                                alpha: 0.45,
+                              )
+                            : const Color(0xFFEAF3F2),
                         side: BorderSide.none,
                         visualDensity: VisualDensity.compact,
                       ),

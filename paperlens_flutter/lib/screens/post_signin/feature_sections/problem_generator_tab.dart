@@ -213,9 +213,6 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
       }
 
       final detailsForSave = details;
-      if (detailsForSave == null) {
-        throw Exception('Could not prepare idea details for saving.');
-      }
 
       await _withTokenRetry(
         (api) => api.createSavedItem(
