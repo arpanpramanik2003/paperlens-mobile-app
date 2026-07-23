@@ -124,54 +124,27 @@ class PostSigninHeader extends StatelessWidget {
                     ),
                   ),
 
-                  // Compact User Profile Avatar
+                  // User Profile Picture (obtained from Clerk)
                   Builder(
                     builder: (context) {
                       try {
                         final auth = ClerkAuth.of(context, listen: true);
                         final user = auth.user;
-                        final firstName = user?.firstName ?? 'Researcher';
-                        final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'R';
+                        final imageUrl = user?.imageUrl;
 
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircleAvatar(
-                                radius: 9,
-                                backgroundColor: SaaSTheme.primaryTeal,
-                                child: Text(
-                                  initial,
-                                  style: const TextStyle(
-                                    color: Color(0xFF041814),
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  firstName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: textColor,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                        return CircleAvatar(
+                          radius: 14,
+                          backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+                          backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
+                              ? NetworkImage(imageUrl)
+                              : null,
+                          child: (imageUrl == null || imageUrl.isEmpty)
+                              ? Icon(
+                                  Icons.person_rounded,
+                                  size: 14,
+                                  color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                                )
+                              : null,
                         );
                       } catch (_) {
                         return const SizedBox.shrink();
