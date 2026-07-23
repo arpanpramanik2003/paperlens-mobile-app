@@ -32,8 +32,12 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
   String _mode = 'upload'; // 'upload' or 'discover'
   String _sortOrder = 'highest'; // 'highest', 'newest', 'oldest', 'lowest'
   String _topicPreset = 'auto'; // 'auto', 'plant_pathology', 'medical_imaging', etc.
+  int? _selectedYearFilter; // Filter papers by year from Analytics Rail
+
   bool _loading = false;
   bool _saving = false;
+  bool _loadingRecommendations = false;
+  bool _showRecommendations = false;
   String _status = '';
 
   String? _filePath;
@@ -171,10 +175,39 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
     }
   }
 
+  List<Map<String, dynamic>> _allReferences() {
+    final refs = (_report?['references'] as List<dynamic>? ?? _report?['top_cited'] as List<dynamic>? ?? const []);
+    return refs.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
+  List<Map<String, int>> _yearwiseCounts() {
+    final counts = <int, int>{};
+    for (final entry in _allReferences()) {
+      final rawYear = entry['year'];
+      final year = rawYear is int ? rawYear : int.tryParse(rawYear?.toString() ?? '');
+      if (year == null || year <= 0) continue;
+      counts.update(year, (value) => value + 1, ifAbsent: () => 1);
+    }
+
+    final items = counts.entries
+        .map((entry) => {'year': entry.key, 'count': entry.value})
+        .toList(growable: true);
+    items.sort((a, b) => (b['year'] ?? 0).compareTo(a['year'] ?? 0));
+    return items;
+  }
+
   List<Map<String, dynamic>> _sortedTopCited() {
-    final items = (_report?['top_cited'] as List<dynamic>? ?? const [])
+    var items = (_report?['top_cited'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
         .toList(growable: true);
+
+    if (_selectedYearFilter != null) {
+      items = items.where((row) {
+        final year = row['year'];
+        final y = year is int ? year : int.tryParse(year?.toString() ?? '');
+        return y == _selectedYearFilter;
+      }).toList();
+    }
 
     int yearValue(Map<String, dynamic> row) {
       final year = row['year'];
@@ -209,8 +242,24 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
     return items;
   }
 
-  Future<void> _loadRecommendations(Map<String, dynamic> report, String mode) async {
-    final refs = (report['references'] as List<dynamic>? ?? const []);
+  Future<void> _fetchAIRecommendations() async {
+    if (_report == null) return;
+
+    if (_showRecommendations && _recommendations != null) {
+      setState(() => _showRecommendations = false);
+      return;
+    }
+
+    if (_recommendations != null) {
+      setState(() => _showRecommendations = true);
+      return;
+    }
+
+    setState(() {
+      _loadingRecommendations = true;
+    });
+
+    final refs = (_report!['references'] as List<dynamic>? ?? const []);
     final missing = refs
         .whereType<Map<String, dynamic>>()
         .where((r) => (r['matched'] ?? false) != true)
@@ -222,19 +271,25 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
     try {
       final rec = await _withTokenRetry(
         (api) => api.citationRecommendations(
-          paperContext: _buildPaperContext(report),
-          topCited: (report['top_cited'] as List<dynamic>? ?? const []),
+          paperContext: _buildPaperContext(_report!),
+          topCited: (_report!['top_cited'] as List<dynamic>? ?? const []),
           missingReferences: missing,
-          recommendationMode: mode,
-          projectTitle: mode == 'discover' ? _titleController.text.trim() : null,
-          basicDetails: mode == 'discover' ? _detailsController.text.trim() : null,
+          recommendationMode: _mode,
+          projectTitle: _mode == 'discover' ? _titleController.text.trim() : null,
+          basicDetails: _mode == 'discover' ? _detailsController.text.trim() : null,
         ),
       );
 
       if (!mounted) return;
-      setState(() => _recommendations = rec);
-    } catch (_) {
-      // Recommendations optional fallback
+      setState(() {
+        _recommendations = rec;
+        _showRecommendations = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to generate AI recommendations: $e')));
+    } finally {
+      if (mounted) setState(() => _loadingRecommendations = false);
     }
   }
 
@@ -250,7 +305,9 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
       _status = 'Connecting to Semantic Scholar citation graph...';
       _report = null;
       _recommendations = null;
+      _showRecommendations = false;
       _progress = null;
+      _selectedYearFilter = null;
     });
     _startLoadingAnimation();
 
@@ -288,7 +345,6 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
             _progress = null;
             _status = 'Processed ${(report['references_processed'] ?? 0)} citations successfully!';
           });
-          _loadRecommendations(report, 'upload');
         }
       }
     } catch (e) {
@@ -312,7 +368,9 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
       _status = 'Mining Semantic Scholar for domain citations...';
       _report = null;
       _recommendations = null;
+      _showRecommendations = false;
       _progress = null;
+      _selectedYearFilter = null;
     });
     _startLoadingAnimation();
 
@@ -330,7 +388,6 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
         _report = report;
         _status = 'Discovered ${(report['top_cited'] as List?)?.length ?? 0} high-impact papers!';
       });
-      _loadRecommendations(report, 'discover');
     } catch (e) {
       if (!mounted) return;
       setState(() => _status = 'Discovery failed: $e');
@@ -477,11 +534,11 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
 
                 const SizedBox(height: 16),
 
-                // Loading Status Ticker
+                // Fixed-Height Loading Status Ticker Box (Never flexes or changes height)
                 if (_loading)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
                       color: isDark ? SaaSTheme.bgDarkSecondary : SaaSTheme.bgLightSecondary,
@@ -495,27 +552,50 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
                           backgroundColor: isDark ? SaaSTheme.surfaceDark : Colors.white,
                         ),
                         const SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                steps[_loadingStepIndex.clamp(0, steps.length - 1)],
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 12, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark, fontWeight: FontWeight.w700),
+                        SizedBox(
+                          height: 48,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      steps[_loadingStepIndex.clamp(0, steps.length - 1)],
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
-                        if (_progress != null) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'Matched ${_progress!['matchedCount']} / ${_progress!['total']} references with Semantic Scholar',
-                            style: TextStyle(fontSize: 10, color: subtextColor),
+                              const SizedBox(height: 4),
+                              Text(
+                                _progress != null
+                                    ? 'Matched ${_progress!['matchedCount']} / ${_progress!['total']} references with Semantic Scholar'
+                                    : 'Scanning database...',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 10, color: subtextColor),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   )
@@ -552,6 +632,42 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
 
           // Output Citation Results
           if (_report != null) ...[
+            // Analytics Rail Card (Matching User's Screenshot)
+            _buildAnalyticsRail(isDark, textColor, subtextColor),
+
+            // AI Recommendations Separate Trigger Button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _loadingRecommendations ? null : _fetchAIRecommendations,
+                icon: _loadingRecommendations
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Icon(
+                        _showRecommendations ? Icons.visibility_off_rounded : Icons.auto_awesome_rounded,
+                        size: 16,
+                      ),
+                label: Text(
+                  _loadingRecommendations
+                      ? 'Generating AI Reading Roadmap...'
+                      : (_showRecommendations ? 'Hide AI Reading Roadmap' : '✨ Generate AI Reading Roadmap & Coverage'),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: SaaSTheme.accentViolet,
+                  side: BorderSide(color: SaaSTheme.accentViolet.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // AI Recommendations Box (Shown on Button Click)
+            if (_showRecommendations && _recommendations != null) ...[
+              _buildRecommendationsBox(_recommendations!, isDark, textColor, subtextColor),
+              const SizedBox(height: 16),
+            ],
+
             // Report Summary Header & Sort Chips
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -561,7 +677,7 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
                     const Icon(Icons.verified_rounded, color: SaaSTheme.primaryTeal, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Ranked Citations (${topCitedList.length})',
+                      _selectedYearFilter != null ? 'Citations for $_selectedYearFilter (${topCitedList.length})' : 'Ranked Citations (${topCitedList.length})',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor),
                     ),
                   ],
@@ -593,16 +709,18 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
                   _sortChip('oldest', 'Oldest First ⏳', isDark),
                   const SizedBox(width: 4),
                   _sortChip('lowest', 'Lowest Citations', isDark),
+                  if (_selectedYearFilter != null) ...[
+                    const SizedBox(width: 8),
+                    InputChip(
+                      label: Text('Year: $_selectedYearFilter'),
+                      onDeleted: () => setState(() => _selectedYearFilter = null),
+                      deleteIconColor: Colors.redAccent,
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 12),
-
-            // AI Recommendations Box
-            if (_recommendations != null) ...[
-              _buildRecommendationsBox(_recommendations!, isDark, textColor, subtextColor),
-              const SizedBox(height: 16),
-            ],
 
             // Citation Cards List
             ...List.generate(topCitedList.length, (index) {
@@ -610,6 +728,142 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
               return _citationCard(paper, index, isDark, textColor, subtextColor);
             }),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsRail(bool isDark, Color textColor, Color subtextColor) {
+    final processed = (_report?['references_processed'] ?? _report?['total_references_extracted'] ?? (_report?['references'] as List?)?.length ?? 0) as int;
+    final matched = (_report?['matched_count'] ?? ((_report?['references'] as List?)?.where((r) => r['matched'] == true).length ?? 0)) as int;
+    final missing = (_report?['missing_count'] ?? (processed - matched).clamp(0, 999)) as int;
+    final yearCounts = _yearwiseCounts();
+    final yearBuckets = yearCounts.length;
+
+    Widget statCard(String label, String value, {Color? valueColor}) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF121519) : const Color(0xFFF1F5F4),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: isDark ? const Color(0xFF1E242B) : const Color(0xFFE2E8E6)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: isDark ? const Color(0xFF8A99AD) : const Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: valueColor ?? (isDark ? Colors.white : const Color(0xFF0F172A)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0A0D10) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? const Color(0xFF1A2027) : const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ANALYTICS RAIL',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+              color: isDark ? const Color(0xFF7A8B9E) : const Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 2x2 Stats Grid
+          Row(
+            children: [
+              Expanded(child: statCard('PROCESSED', '$processed')),
+              const SizedBox(width: 10),
+              Expanded(child: statCard('MATCHED', '$matched', valueColor: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: statCard('MISSING', '$missing')),
+              const SizedBox(width: 10),
+              Expanded(child: statCard('YEAR BUCKETS', '$yearBuckets')),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          Text(
+            'YEAR DISTRIBUTION',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.0,
+              color: isDark ? const Color(0xFF7A8B9E) : const Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: yearCounts.map((item) {
+              final y = item['year'];
+              final c = item['count'];
+              final isSelected = _selectedYearFilter == y;
+
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedYearFilter = isSelected ? null : y;
+                  });
+                },
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? (isDark ? SaaSTheme.primaryTeal.withValues(alpha: 0.25) : SaaSTheme.primaryTealDark.withValues(alpha: 0.2))
+                        : (isDark ? const Color(0xFF14191F) : const Color(0xFFEDF2F1)),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: isSelected ? (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark) : (isDark ? const Color(0xFF222B35) : const Color(0xFFCBD5E1)),
+                    ),
+                  ),
+                  child: Text(
+                    '$y:$c',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark) : (isDark ? const Color(0xFFD0D7DE) : const Color(0xFF334155)),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
         ],
       ),
     );
@@ -771,7 +1025,14 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
             children: [
               const Icon(Icons.auto_awesome_rounded, color: SaaSTheme.accentViolet, size: 20),
               const SizedBox(width: 8),
-              Text('AI Reading Roadmap & Coverage Analysis', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor)),
+              Expanded(
+                child: Text(
+                  'AI Reading Roadmap & Coverage Analysis',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor),
+                ),
+              ),
             ],
           ),
           if (focus.isNotEmpty) ...[
