@@ -648,14 +648,17 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
                       ),
                 label: Text(
                   _loadingRecommendations
-                      ? 'Generating AI Reading Roadmap...'
-                      : (_showRecommendations ? 'Hide AI Reading Roadmap' : '✨ Generate AI Reading Roadmap & Coverage'),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                      ? 'Generating AI Reading Roadmap...\nPlease wait a moment'
+                      : (_showRecommendations
+                          ? 'Hide AI Reading Roadmap\n& Literature Coverage'
+                          : '✨ Generate AI Reading Roadmap\n& Literature Coverage Analysis'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.3),
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: SaaSTheme.accentViolet,
                   side: BorderSide(color: SaaSTheme.accentViolet.withValues(alpha: 0.5)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
               ),
@@ -672,16 +675,23 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.verified_rounded, color: SaaSTheme.primaryTeal, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      _selectedYearFilter != null ? 'Citations for $_selectedYearFilter (${topCitedList.length})' : 'Ranked Citations (${topCitedList.length})',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor),
-                    ),
-                  ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.verified_rounded, color: SaaSTheme.primaryTeal, size: 18),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _selectedYearFilter != null ? 'Citations for $_selectedYearFilter (${topCitedList.length})' : 'Ranked Citations (${topCitedList.length})',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: _saving ? null : _saveMatrix,
                   icon: const Icon(Icons.bookmark_border_rounded, size: 14),
@@ -689,6 +699,7 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
                     foregroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     elevation: 0,
                   ),
                 ),
