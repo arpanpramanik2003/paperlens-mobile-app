@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../services/api_service.dart';
 import '../../landing/landing_theme.dart';
@@ -26,20 +27,29 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
   final _domainController = TextEditingController(text: 'Artificial Intelligence');
   final _subdomainController = TextEditingController(text: 'LLM Reasoning & Alignment');
 
-  String _complexity = 'medium';
+  String _complexity = 'medium'; // 'low', 'medium', 'high', 'breakthrough'
   bool _loading = false;
   int? _expandingIndex;
   bool _saving = false;
+  bool _copied = false;
   String _status = '';
   List<Map<String, dynamic>> _ideas = const [];
   int? _expandedIndex;
   final Map<int, Map<String, dynamic>> _ideaDetails = {};
 
   static const _presetDomains = [
-    ('LLM Reasoning', 'Artificial Intelligence', 'LLM Reasoning & Chain of Thought'),
+    ('LLM Reasoning', 'Artificial Intelligence', 'LLM Reasoning & Alignment'),
     ('Computer Vision', 'Computer Vision', 'Multimodal Diffusion & Video Generation'),
-    ('Robotics', 'Robotics', 'Embodied AI & Manipulation'),
-    ('Bioinformatics', 'Bioinformatics', 'Protein Folding & Drug Discovery'),
+    ('Medical Imaging', 'Medical Imaging', 'Radiology, MRI & Ultrasound Diagnosis'),
+    ('Robotics', 'Robotics', 'Embodied AI & Manipulator Control'),
+    ('Bioinformatics', 'Bioinformatics', 'Protein Structure & Drug Discovery'),
+  ];
+
+  static const _workflowGuide = [
+    ('Define Domain', 'Set problem space & practical research constraints.', Icons.compass_calibration_rounded),
+    ('Generate Candidates', 'Get ranked research proposals with complexity control.', Icons.auto_awesome_rounded),
+    ('Expand to Brief', 'Convert one candidate idea into a complete execution roadmap.', Icons.insert_drive_file_rounded),
+    ('Export & Execute', 'Save brief to workspace & execute research experiments.', Icons.download_rounded),
   ];
 
   @override
@@ -73,7 +83,7 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
 
   Future<void> _generateIdeas() async {
     if (_domainController.text.trim().isEmpty) {
-      setState(() => _status = 'Enter a domain first.');
+      setState(() => _status = 'Enter a research domain first.');
       return;
     }
 
@@ -125,7 +135,7 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
     final idea = _ideas[index];
     setState(() {
       _expandingIndex = index;
-      _status = 'Expanding methodology & evaluation plan...';
+      _status = 'Expanding execution methodology brief for idea #${index + 1}...';
     });
 
     try {
@@ -158,7 +168,7 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
   Future<void> _saveIdea(Map<String, dynamic> idea, int index) async {
     if (_saving) return;
     final title = (idea['title'] ?? idea['name'] ?? 'Research Proposal').toString();
-    final summary = (idea['summary'] ?? idea['problem_statement'] ?? '').toString();
+    final summary = (idea['desc'] ?? idea['summary'] ?? idea['problem_statement'] ?? '').toString();
     final fullPayload = Map<String, dynamic>.from(idea);
     if (_ideaDetails[index] != null) {
       fullPayload['expanded_details'] = _ideaDetails[index];
@@ -180,6 +190,23 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
     }
   }
 
+  void _copyAllProposalsToClipboard() {
+    if (_ideas.isEmpty) return;
+    final text = _ideas.map((item) {
+      final t = (item['title'] ?? item['name'] ?? 'Proposal').toString();
+      final desc = (item['desc'] ?? item['summary'] ?? '').toString();
+      final rating = item['rating']?.toString() ?? '4.8';
+      return '### $t [Rating: $rating/5.0]\n$desc';
+    }).join('\n\n---\n\n');
+
+    Clipboard.setData(ClipboardData(text: text));
+    setState(() => _copied = true);
+    _showSnack('Copied all proposals to clipboard!');
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -193,27 +220,35 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
         children: [
           PostSigninSectionCard(
             title: 'Problem Generator & Hypothesis Creator',
-            subtitle: 'AI-formulated novel research directions, problem statements, and testable hypotheses.',
+            subtitle: 'Formulate novel research directions, testable hypotheses, and complete execution roadmaps.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Preset Domain Chips
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
                   child: Row(
                     children: _presetDomains.map((preset) {
+                      final isSelected = _domainController.text == preset.$2;
                       return Padding(
                         padding: const EdgeInsets.only(right: 6),
-                        child: ActionChip(
+                        child: ChoiceChip(
                           label: Text(preset.$1),
-                          onPressed: () {
+                          selected: isSelected,
+                          onSelected: (_) {
                             setState(() {
                               _domainController.text = preset.$2;
                               _subdomainController.text = preset.$3;
                             });
                           },
+                          selectedColor: isDark ? SaaSTheme.primaryTeal.withValues(alpha: 0.2) : SaaSTheme.primaryTealDark.withValues(alpha: 0.15),
                           backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
-                          labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight),
+                          labelStyle: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                            color: isSelected ? (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark) : subtextColor,
+                          ),
                         ),
                       );
                     }).toList(),
@@ -259,7 +294,47 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
                 ),
                 const SizedBox(height: 16),
 
-                if (_status.isNotEmpty)
+                // Fixed-Height Loading Indicator Box (Never flexes or changes box height)
+                if (_loading)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? SaaSTheme.bgDarkSecondary : SaaSTheme.bgLightSecondary,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                    ),
+                    child: Column(
+                      children: [
+                        LinearProgressIndicator(
+                          color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                          backgroundColor: isDark ? SaaSTheme.surfaceDark : Colors.white,
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          height: 24,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  _status.isEmpty ? 'Formulating novel research proposals...' : _status,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 12, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (_status.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(_status, style: TextStyle(fontSize: 12, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark, fontWeight: FontWeight.w600)),
@@ -273,7 +348,7 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF041814)))
                         : const Icon(Icons.auto_awesome_rounded, size: 18),
                     label: Text(
-                      _loading ? 'Generating Novel Proposals...' : 'Generate Research Proposals',
+                      _loading ? 'Generating Proposals...' : 'Generate Research Proposals',
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -290,13 +365,109 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
 
           const SizedBox(height: 20),
 
-          // Generated Proposals
+          // 4-Stage Workflow Guide Card (Only shown before results arrive)
+          if (_ideas.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Workflow Example', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor)),
+                      Text('4 STAGES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: subtextColor, letterSpacing: 1.0)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth >= 600;
+
+                      return GridView.count(
+                        crossAxisCount: isWide ? 2 : 1,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: isWide ? 3.6 : 3.8,
+                        children: List.generate(_workflowGuide.length, (idx) {
+                          final item = _workflowGuide[idx];
+                          return Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: isDark ? SaaSTheme.surfaceDark.withValues(alpha: 0.5) : SaaSTheme.bgLightSecondary,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(item.$3, size: 14, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '${idx + 1}. ${item.$1}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textColor),
+                                      ),
+                                      Text(
+                                        item.$2,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 10, color: subtextColor),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+          // Generated Proposals Output Section
           if (_ideas.isNotEmpty) ...[
             Text(
-              'Novel Research Proposals (${_ideas.length})',
+              '${_ideas.length} Novel Research Proposals Identified',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _copyAllProposalsToClipboard,
+                  icon: Icon(_copied ? Icons.check_rounded : Icons.copy_rounded, size: 14),
+                  label: Text(_copied ? 'Copied All' : 'Copy All Proposals'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: textColor,
+                    side: BorderSide(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
             ...List.generate(_ideas.length, (index) {
               final idea = _ideas[index];
               return _proposalCard(idea, index, isDark, textColor, subtextColor);
@@ -337,75 +508,139 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
 
   Widget _proposalCard(Map<String, dynamic> idea, int index, bool isDark, Color textColor, Color subtextColor) {
     final title = (idea['title'] ?? idea['name'] ?? 'Proposal #${index + 1}').toString();
-    final summary = (idea['summary'] ?? idea['problem_statement'] ?? idea['description'] ?? '').toString();
-    final hypothesis = (idea['hypothesis'] ?? idea['core_hypothesis'] ?? '').toString();
+    final summary = (idea['desc'] ?? idea['summary'] ?? idea['problem_statement'] ?? '').toString();
+    final rating = (idea['rating'] as num?)?.toDouble() ?? 4.8;
+    final tags = (idea['tags'] as List<dynamic>? ?? const []).map((t) => t.toString()).toList();
+
     final isExpanded = _expandedIndex == index;
     final isExpanding = _expandingIndex == index;
     final details = _ideaDetails[index];
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(18),
       decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: SaaSTheme.accentMagenta.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.lightbulb_rounded, color: SaaSTheme.accentMagenta, size: 18),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor, height: 1.35),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: SaaSTheme.accentAmber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.star_rounded, size: 12, color: SaaSTheme.accentAmber),
+                    const SizedBox(width: 4),
+                    Text(
+                      rating.toStringAsFixed(1),
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: SaaSTheme.accentAmber),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(summary, style: TextStyle(fontSize: 13, height: 1.45, color: subtextColor)),
 
-          if (hypothesis.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isDark ? SaaSTheme.bgDarkSecondary : SaaSTheme.bgLightSecondary,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.science_rounded, size: 14, color: SaaSTheme.primaryTeal),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Hypothesis: $hypothesis',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
-                    ),
+          if (tags.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: tags.map((tag) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
                   ),
-                ],
-              ),
+                  child: Text('#$tag', style: TextStyle(fontSize: 10, color: subtextColor, fontWeight: FontWeight.w600)),
+                );
+              }).toList(),
             ),
           ],
 
+          const SizedBox(height: 10),
+
+          // Justified Summary Text
+          SelectableText(
+            summary,
+            textAlign: TextAlign.justify,
+            style: TextStyle(fontSize: 13, height: 1.55, color: subtextColor),
+          ),
+
+          // Expanded Execution Brief Details
           if (isExpanded && details != null) ...[
             const SizedBox(height: 14),
             Divider(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight, height: 1),
             const SizedBox(height: 14),
-            Text('Expanded Methodology Brief', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textColor)),
-            const SizedBox(height: 6),
-            Text(
-              (details['methodology'] ?? details['details'] ?? details['expanded'] ?? 'Detailed plan generated.').toString(),
-              style: TextStyle(fontSize: 12, height: 1.5, color: subtextColor),
-            ),
+            Text('Execution Brief & Step-by-Step Roadmap', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor)),
+            const SizedBox(height: 10),
+
+            if (details['problem_statement'] != null) ...[
+              Text('Problem Statement', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)),
+              const SizedBox(height: 4),
+              SelectableText(details['problem_statement'].toString(), textAlign: TextAlign.justify, style: TextStyle(fontSize: 12, height: 1.45, color: subtextColor)),
+              const SizedBox(height: 10),
+            ],
+
+            if (details['objective'] != null) ...[
+              Text('Core Objective', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)),
+              const SizedBox(height: 4),
+              SelectableText(details['objective'].toString(), textAlign: TextAlign.justify, style: TextStyle(fontSize: 12, height: 1.45, color: subtextColor)),
+              const SizedBox(height: 10),
+            ],
+
+            if (details['step_by_step'] is List && (details['step_by_step'] as List).isNotEmpty) ...[
+              Text('Step-by-Step Execution Plan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)),
+              const SizedBox(height: 6),
+              ...(details['step_by_step'] as List).map((stepObj) {
+                final sMap = stepObj is Map ? stepObj : {};
+                final stepNum = sMap['step'] ?? 1;
+                final sTitle = (sMap['title'] ?? '').toString();
+                final sDetails = (sMap['details'] ?? '').toString();
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: SaaSTheme.primaryTeal.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('Step $stepNum', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: SaaSTheme.primaryTeal)),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(sTitle, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textColor)),
+                            if (sDetails.isNotEmpty) Text(sDetails, style: TextStyle(fontSize: 11, color: subtextColor, height: 1.4)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
           ],
 
           const SizedBox(height: 14),
@@ -417,10 +652,11 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
                 icon: isExpanding
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                     : Icon(isExpanded ? Icons.expand_less_rounded : Icons.read_more_rounded, size: 14),
-                label: Text(isExpanded ? 'Collapse' : 'Expand Brief'),
+                label: Text(isExpanding ? 'Collapsing...' : (isExpanded ? 'Hide Brief' : 'Expand Brief')),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: textColor,
                   side: BorderSide(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 ),
               ),
               const SizedBox(width: 8),
@@ -431,6 +667,7 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
                   foregroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   elevation: 0,
                 ),
               ),
@@ -438,6 +675,6 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
           ),
         ],
       ),
-    ).animate().fadeIn(delay: (index * 60).ms, duration: 400.ms);
+    ).animate().fadeIn(delay: (index * 50).ms, duration: 350.ms);
   }
 }

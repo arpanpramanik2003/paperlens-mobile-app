@@ -364,125 +364,116 @@ class _GapDetectionTabState extends State<GapDetectionTab> {
 
           const SizedBox(height: 20),
 
-          // 4-Stage Workflow Guide Card
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Workflow Example', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor)),
-                    Text('4 STAGES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: subtextColor, letterSpacing: 1.0)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isWide = constraints.maxWidth >= 600;
+          // 4-Stage Workflow Guide Card (Only shown before results arrive)
+          if (_gaps.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Workflow Example', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor)),
+                      Text('4 STAGES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: subtextColor, letterSpacing: 1.0)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth >= 600;
 
-                    return GridView.count(
-                      crossAxisCount: isWide ? 2 : 1,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: isWide ? 3.6 : 3.8,
-                      children: List.generate(_workflowGuide.length, (idx) {
-                        final item = _workflowGuide[idx];
-                        return Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: isDark ? SaaSTheme.surfaceDark.withValues(alpha: 0.5) : SaaSTheme.bgLightSecondary,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 28,
-                                height: 28,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(8),
+                      return GridView.count(
+                        crossAxisCount: isWide ? 2 : 1,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: isWide ? 3.6 : 3.8,
+                        children: List.generate(_workflowGuide.length, (idx) {
+                          final item = _workflowGuide[idx];
+                          return Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: isDark ? SaaSTheme.surfaceDark.withValues(alpha: 0.5) : SaaSTheme.bgLightSecondary,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(item.$3, size: 14, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark),
                                 ),
-                                child: Icon(item.$3, size: 14, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      '${idx + 1}. ${item.$1}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textColor),
-                                    ),
-                                    Text(
-                                      item.$2,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(fontSize: 10, color: subtextColor),
-                                    ),
-                                  ],
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '${idx + 1}. ${item.$1}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textColor),
+                                      ),
+                                      Text(
+                                        item.$2,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 10, color: subtextColor),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    );
-                  },
-                ),
-              ],
+                              ],
+                            ),
+                          );
+                        }),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-
-          const SizedBox(height: 20),
 
           // Discovered Gaps Output Section
           if (_gaps.isNotEmpty) ...[
+            Text(
+              '${_gaps.length} Research Gaps Identified',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor),
+            ),
+            const SizedBox(height: 10),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Text(
-                    '${_gaps.length} Research Gaps Identified',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor),
+                OutlinedButton.icon(
+                  onPressed: _copyAllGapsToClipboard,
+                  icon: Icon(_copied ? Icons.check_rounded : Icons.copy_rounded, size: 14),
+                  label: Text(_copied ? 'Copied Report' : 'Copy Report'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: textColor,
+                    side: BorderSide(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 ),
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _copyAllGapsToClipboard,
-                      icon: Icon(_copied ? Icons.check_rounded : Icons.copy_rounded, size: 14),
-                      label: Text(_copied ? 'Copied' : 'Copy Report'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: textColor,
-                        side: BorderSide(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _saving ? null : _saveAllGaps,
-                      icon: const Icon(Icons.bookmark_border_rounded, size: 14),
-                      label: const Text('Save'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
-                        foregroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        elevation: 0,
-                      ),
-                    ),
-                  ],
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: _saving ? null : _saveAllGaps,
+                  icon: const Icon(Icons.bookmark_border_rounded, size: 14),
+                  label: const Text('Save to Workspace'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+                    foregroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    elevation: 0,
+                  ),
                 ),
               ],
             ),
