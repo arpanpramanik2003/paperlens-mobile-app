@@ -1,3 +1,3 @@
-- [ ] Remove `io.flutter.embedding.android.RenderMode` from `AndroidManifest.xml`
-- [ ] Check `build.gradle` for potential rendering-related issues
-- [ ] Verify if the black screen persists with Hardware acceleration
+- [x] Remove `io.flutter.embedding.android.RenderMode` from `AndroidManifest.xml`
+- [x] Check `build.gradle` for potential rendering-related issues
+- [ ] Provide instructions for "Cold Boot" and GPU Cache clearing

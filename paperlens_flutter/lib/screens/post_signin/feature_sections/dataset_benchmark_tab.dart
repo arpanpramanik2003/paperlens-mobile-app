@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../../services/api_service.dart';
+import '../../landing/landing_theme.dart';
 import '../shared_widgets.dart';
 
 class DatasetBenchmarkTab extends StatefulWidget {
@@ -22,8 +23,8 @@ class DatasetBenchmarkTab extends StatefulWidget {
 }
 
 class _DatasetBenchmarkTabState extends State<DatasetBenchmarkTab> {
-  final _titleController = TextEditingController();
-  final _planController = TextEditingController();
+  final _titleController = TextEditingController(text: 'Multimodal Vision-Language Reasoning');
+  final _planController = TextEditingController(text: 'Evaluate zero-shot visual question answering accuracy across open-domain scientific diagrams.');
 
   bool _loading = false;
   bool _saving = false;
@@ -33,8 +34,13 @@ class _DatasetBenchmarkTabState extends State<DatasetBenchmarkTab> {
   List<Map<String, dynamic>> _datasets = const [];
   List<Map<String, dynamic>> _benchmarks = const [];
   List<Map<String, dynamic>> _technologies = const [];
-  int? _expandedDatasetIndex;
-  int? _expandedBenchmarkIndex;
+
+  static const _presets = [
+    ('Vision-Language', 'Multimodal VQA Reasoning', 'Evaluate zero-shot visual question answering accuracy across open-domain scientific diagrams.'),
+    ('Medical Imaging', 'Brain MRI Tumor Segmentation', 'Segment 3D MRI scans using UNet3D and Transformer encoder baselines.'),
+    ('Financial NLP', 'Stock Sentiment & Earnings Call Parsing', 'Classify financial news sentiment and correlate with stock volatility metrics.'),
+    ('Robotic Control', 'Quadruped Locomotion RL', 'Train PPO policies for rough-terrain quadruped locomotion in Isaac Gym simulation.'),
+  ];
 
   @override
   void dispose() {
@@ -47,12 +53,9 @@ class _DatasetBenchmarkTabState extends State<DatasetBenchmarkTab> {
     return ApiService(baseUrl: widget.baseUrl, jwtToken: widget.getJwtToken());
   }
 
-  Future<T> _withTokenRetry<T>(
-    Future<T> Function(ApiService api) request,
-  ) async {
+  Future<T> _withTokenRetry<T>(Future<T> Function(ApiService api) request) async {
     await widget.ensureToken();
     var api = _apiWithCurrentToken();
-
     try {
       return await request(api);
     } on ApiException catch (e) {
@@ -68,22 +71,6 @@ class _DatasetBenchmarkTabState extends State<DatasetBenchmarkTab> {
     return value.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
-  List<String> _asStringList(dynamic value) {
-    if (value is! List) return const [];
-    return value
-        .map((e) => e.toString().trim())
-        .where((e) => e.isNotEmpty)
-        .toList(growable: false);
-  }
-
-  String _prettyKey(String key) {
-    return key
-        .split('_')
-        .where((part) => part.isNotEmpty)
-        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
-        .join(' ');
-  }
-
   Future<void> _find() async {
     final title = _titleController.text.trim();
     final plan = _planController.text.trim();
@@ -94,19 +81,16 @@ class _DatasetBenchmarkTabState extends State<DatasetBenchmarkTab> {
 
     setState(() {
       _loading = true;
-      _status = '';
+      _status = 'AI is searching SOTA datasets and benchmark leaderboards...';
       _summary = '';
       _datasets = const [];
       _benchmarks = const [];
       _technologies = const [];
-      _expandedDatasetIndex = null;
-      _expandedBenchmarkIndex = null;
     });
 
     try {
       final data = await _withTokenRetry(
-        (api) =>
-            api.findDatasetsBenchmarks(projectTitle: title, projectPlan: plan),
+        (api) => api.findDatasetsBenchmarks(projectTitle: title, projectPlan: plan),
       );
 
       setState(() {
@@ -114,471 +98,258 @@ class _DatasetBenchmarkTabState extends State<DatasetBenchmarkTab> {
         _datasets = _asMapList(data['datasets']);
         _benchmarks = _asMapList(data['benchmarks']);
         _technologies = _asMapList(data['technologies']);
-        _expandedDatasetIndex = _datasets.isEmpty ? null : 0;
-        _expandedBenchmarkIndex = _benchmarks.isEmpty ? null : 0;
-        _status =
-            'Loaded ${_datasets.length} datasets and ${_benchmarks.length} benchmarks.';
+        _status = 'Found ${_datasets.length} datasets and ${_benchmarks.length} benchmark targets!';
       });
     } catch (e) {
-      setState(() => _status = 'Finder failed: $e');
+      setState(() => _status = 'Search failed: $e');
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _saveRecommendations() async {
-    if (_datasets.isEmpty && _benchmarks.isEmpty && _technologies.isEmpty) {
-      setState(() => _status = 'Find recommendations before saving.');
-      return;
-    }
+  Future<void> _saveResults() async {
+    if (_saving) return;
+    final title = _titleController.text.trim().isEmpty ? 'Dataset & Benchmark Report' : _titleController.text.trim();
+    final summary = _summary.isNotEmpty ? _summary : 'Dataset and benchmark matrix mapping.';
 
-    setState(() {
-      _saving = true;
-      _status = '';
-    });
-
+    setState(() => _saving = true);
     try {
-      final title = _titleController.text.trim().isEmpty
-          ? 'Dataset and Benchmark Recommendations'
-          : _titleController.text.trim();
-
-      await _withTokenRetry(
-        (api) => api.createSavedItem(
-          section: 'dataset_benchmark_finder',
-          title: title,
-          summary:
-              '${_datasets.length} datasets • ${_benchmarks.length} benchmarks • ${_technologies.length} technologies',
-          payload: {
-            'project_title': _titleController.text.trim(),
-            'project_plan': _planController.text.trim(),
-            'domain_summary': _summary,
-            'datasets': _datasets,
-            'benchmarks': _benchmarks,
-            'technologies': _technologies,
-          },
-        ),
-      );
-
+      await _withTokenRetry((api) => api.createSavedItem(
+            section: 'dataset',
+            title: title,
+            summary: summary.length > 140 ? '${summary.substring(0, 140)}...' : summary,
+            payload: {
+              'project_title': title,
+              'domain_summary': _summary,
+              'datasets': _datasets,
+              'benchmarks': _benchmarks,
+              'technologies': _technologies,
+            },
+          ));
       if (!mounted) return;
-      setState(() => _status = 'Recommendations saved.');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saved "$title" matrix to Research Workspace!')));
     } catch (e) {
       if (!mounted) return;
-      setState(() => _status = 'Save failed: $e');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save matrix: $e')));
     } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
+      if (mounted) setState(() => _saving = false);
     }
-  }
-
-  Widget _itemCard({
-    required BuildContext context,
-    required int index,
-    required bool expanded,
-    required VoidCallback onToggle,
-    required String title,
-    required String description,
-    String? score,
-    List<String> tags = const [],
-    Map<String, dynamic>? details,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            InkWell(
-              onTap: onToggle,
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CircleAvatar(
-                      radius: 14,
-                      backgroundColor: colorScheme.primary.withValues(
-                        alpha: 0.14,
-                      ),
-                      child: Text(
-                        '${index + 1}',
-                        style: TextStyle(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    if (score != null && score.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          score,
-                          style: TextStyle(color: colorScheme.primary),
-                        ),
-                      ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      expanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              textAlign: TextAlign.justify,
-              style: TextStyle(
-                color: colorScheme.onSurface.withValues(alpha: 0.9),
-                height: 1.35,
-              ),
-            ),
-            if (tags.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: tags
-                    .map(
-                      (tag) => Chip(
-                        label: Text(
-                          tag,
-                          style: TextStyle(
-                            color: isDark
-                                ? colorScheme.onSecondaryContainer
-                                : const Color(0xFF2D4A45),
-                          ),
-                        ),
-                        backgroundColor: isDark
-                            ? colorScheme.secondaryContainer.withValues(
-                                alpha: 0.45,
-                              )
-                            : const Color(0xFFEAF3F2),
-                        side: BorderSide.none,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-            ],
-            AnimatedCrossFade(
-              firstChild: const SizedBox.shrink(),
-              secondChild: (details == null || details.isEmpty)
-                  ? const SizedBox.shrink()
-                  : Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Column(
-                        children: details.entries
-                            .map((entry) {
-                              final raw = entry.value;
-                              final value = raw is List
-                                  ? raw
-                                        .map((e) => e.toString().trim())
-                                        .where((e) => e.isNotEmpty)
-                                        .join(', ')
-                                  : raw.toString();
-                              return Container(
-                                width: double.infinity,
-                                margin: const EdgeInsets.only(bottom: 6),
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.4),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _prettyKey(entry.key),
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 12,
-                                        color: colorScheme.primary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      value,
-                                      textAlign: TextAlign.justify,
-                                      style: const TextStyle(height: 1.34),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            })
-                            .toList(growable: false),
-                      ),
-                    ),
-              crossFadeState: expanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 220),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight;
+    final subtextColor = isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight;
 
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        PostSigninSectionCard(
-          title: 'Dataset & Benchmark Finder',
-          icon: Icons.dataset_linked_rounded,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isDark
-                        ? const [Color(0xFF1E324B), Color(0xFF2F4A6B)]
-                        : const [Color(0xFFEBF3FF), Color(0xFFDDEAFF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark
-                        ? const Color(0xFF456B97)
-                        : const Color(0xFFC6D9FA),
-                  ),
-                ),
-                child: Text(
-                  'Discover suitable datasets, benchmarks, and commonly used technologies from your project title and plan details, then save the recommendation package for future use.',
-                  textAlign: TextAlign.justify,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : const Color(0xFF274767),
-                    height: 1.35,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _titleController,
-                decoration: InputDecoration(
-                  labelText: 'Project Title',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: isDark
-                      ? colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.3,
-                        )
-                      : Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _planController,
-                minLines: 4,
-                maxLines: 10,
-                decoration: InputDecoration(
-                  labelText: 'Project Plan (optional)',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: isDark
-                      ? colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.3,
-                        )
-                      : Colors.white,
-                ),
-              ),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: _loading ? null : _find,
-                icon: _loading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2.2),
-                      )
-                    : const Icon(Icons.travel_explore_rounded),
-                label: Text(_loading ? 'Finding...' : 'Find Recommendations'),
-              ),
-              if (_status.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                PostSigninInfoBox(text: _status),
-              ],
-            ],
-          ),
-        ),
-        if (_summary.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? colorScheme.secondaryContainer.withValues(alpha: 0.28)
-                  : const Color(0xFFEFF5FF),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDark
-                    ? colorScheme.outline.withValues(alpha: 0.35)
-                    : const Color(0xFFD5E4FF),
-              ),
-            ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PostSigninSectionCard(
+            title: 'Dataset & Benchmark Finder Studio',
+            subtitle: 'Locate SOTA evaluation datasets, leaderboards, baseline metrics, and hardware requirements.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Domain Summary',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                // Preset Project Chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _presets.map((preset) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ActionChip(
+                          label: Text(preset.$1),
+                          onPressed: () {
+                            setState(() {
+                              _titleController.text = preset.$2;
+                              _planController.text = preset.$3;
+                            });
+                          },
+                          backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+                          labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight),
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Text(_summary, textAlign: TextAlign.justify),
+                const SizedBox(height: 14),
+
+                TextField(
+                  controller: _titleController,
+                  decoration: InputDecoration(
+                    labelText: 'Project Title',
+                    hintText: 'e.g., Multimodal Vision-Language Reasoning',
+                    hintStyle: TextStyle(fontSize: 12, color: subtextColor),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                TextField(
+                  controller: _planController,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    labelText: 'Project Methodology & Plan Scope',
+                    hintText: 'Describe target domain, model architecture, or evaluation goals...',
+                    hintStyle: TextStyle(fontSize: 12, color: subtextColor),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                if (_status.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(_status, style: TextStyle(fontSize: 12, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark, fontWeight: FontWeight.w600)),
+                  ),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _loading ? null : _find,
+                    icon: _loading
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF041814)))
+                        : const Icon(Icons.search_rounded, size: 18),
+                    label: Text(
+                      _loading ? 'Searching SOTA Repositories...' : 'Find Datasets & Benchmarks',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                      foregroundColor: const Color(0xFF041814),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ],
-        const SizedBox(height: 10),
-        if (_datasets.isNotEmpty ||
-            _benchmarks.isNotEmpty ||
-            _technologies.isNotEmpty) ...[
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${_datasets.length} datasets • ${_benchmarks.length} benchmarks • ${_technologies.length} technologies',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: _saving ? null : _saveRecommendations,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.bookmark_add_rounded, size: 18),
-                label: Text(_saving ? 'Saving...' : 'Save'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-        ],
-        if (_datasets.isNotEmpty) ...[
-          Text('Datasets', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          ..._datasets.asMap().entries.map((entry) {
-            final index = entry.key;
-            final item = entry.value;
-            final tags = _asStringList(item['best_for']);
-            final score = item['fit_score']?.toString();
-            return _itemCard(
-              context: context,
-              index: index,
-              expanded: _expandedDatasetIndex == index,
-              onToggle: () {
-                setState(() {
-                  _expandedDatasetIndex = _expandedDatasetIndex == index
-                      ? null
-                      : index;
-                });
-              },
-              title: (item['name'] ?? 'Dataset').toString(),
-              description: (item['short_description'] ?? '').toString(),
-              score: score,
-              tags: tags,
-              details: (item['details'] as Map?)?.cast<String, dynamic>(),
-            );
-          }),
-        ],
-        if (_benchmarks.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text('Benchmarks', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          ..._benchmarks.asMap().entries.map((entry) {
-            final index = entry.key;
-            final item = entry.value;
-            final score = item['fit_score']?.toString();
-            return _itemCard(
-              context: context,
-              index: index,
-              expanded: _expandedBenchmarkIndex == index,
-              onToggle: () {
-                setState(() {
-                  _expandedBenchmarkIndex = _expandedBenchmarkIndex == index
-                      ? null
-                      : index;
-                });
-              },
-              title: (item['name'] ?? 'Benchmark').toString(),
-              description: (item['short_description'] ?? '').toString(),
-              score: score,
-              details: (item['details'] as Map?)?.cast<String, dynamic>(),
-            );
-          }),
-        ],
-        if (_technologies.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text('Technologies', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: _technologies
-                .map(
-                  (item) => Chip(
-                    label: Text(
-                      '${(item['name'] ?? '').toString()} (${(item['category'] ?? '').toString()})',
-                    ),
-                    backgroundColor: isDark
-                        ? colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.45,
-                          )
-                        : const Color(0xFFE8EFF8),
-                    side: BorderSide.none,
+
+          const SizedBox(height: 20),
+
+          // Domain Summary Card
+          if (_summary.isNotEmpty) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.analytics_rounded, color: SaaSTheme.accentAmber, size: 20),
+                      const SizedBox(width: 8),
+                      Text('Domain Intelligence Summary', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor)),
+                      const Spacer(),
+                      ElevatedButton.icon(
+                        onPressed: _saveResults,
+                        icon: const Icon(Icons.bookmark_border_rounded, size: 14),
+                        label: const Text('Save Matrix'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+                          foregroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                          elevation: 0,
+                        ),
+                      ),
+                    ],
                   ),
-                )
-                .toList(growable: false),
-          ),
+                  const SizedBox(height: 10),
+                  Text(_summary, style: TextStyle(fontSize: 13, height: 1.5, color: subtextColor)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // Datasets List
+          if (_datasets.isNotEmpty) ...[
+            Text('Recommended Datasets (${_datasets.length})', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor)),
+            const SizedBox(height: 12),
+            ...List.generate(_datasets.length, (index) {
+              final ds = _datasets[index];
+              final name = (ds['name'] ?? ds['title'] ?? 'Dataset #${index + 1}').toString();
+              final desc = (ds['description'] ?? ds['summary'] ?? '').toString();
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(16),
+                decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: SaaSTheme.primaryTeal.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.dataset_rounded, color: SaaSTheme.primaryTeal, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor)),
+                          const SizedBox(height: 2),
+                          Text(desc, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: subtextColor)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ).animate().fadeIn(delay: (index * 60).ms, duration: 400.ms);
+            }),
+          ],
+
+          const SizedBox(height: 20),
+
+          // Benchmarks List
+          if (_benchmarks.isNotEmpty) ...[
+            Text('SOTA Benchmarks & Leaderboards (${_benchmarks.length})', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor)),
+            const SizedBox(height: 12),
+            ...List.generate(_benchmarks.length, (index) {
+              final bm = _benchmarks[index];
+              final name = (bm['name'] ?? bm['benchmark'] ?? 'Benchmark #${index + 1}').toString();
+              final metric = (bm['metric'] ?? bm['target'] ?? '').toString();
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(16),
+                decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: SaaSTheme.accentCyan.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.verified_rounded, color: SaaSTheme.accentCyan, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor)),
+                          if (metric.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text('Target Metric: $metric', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? SaaSTheme.accentCyan : SaaSTheme.primaryTealDark)),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ).animate().fadeIn(delay: (index * 60).ms, duration: 400.ms);
+            }),
+          ],
         ],
-        if (_datasets.isEmpty && _benchmarks.isEmpty && _technologies.isEmpty)
-          const PostSigninInfoBox(
-            text:
-                'Enter project information to discover datasets and benchmarks.',
-          ),
-      ],
+      ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../landing/landing_theme.dart';
 
 class PostSigninStatusPill extends StatelessWidget {
   const PostSigninStatusPill({
@@ -37,39 +38,78 @@ class PostSigninSectionCard extends StatelessWidget {
   const PostSigninSectionCard({
     super.key,
     required this.title,
-    required this.icon,
+    this.subtitle,
+    this.icon = Icons.stars_rounded,
     required this.child,
   });
 
   final String title;
+  final String? subtitle;
   final IconData icon;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight;
+    final subtextColor = isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: SaaSTheme.glassCardDecoration(
+        isDark: isDark,
+        borderRadius: 20,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            child,
-          ],
-        ),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: textColor,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    if (subtitle != null && subtitle!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: subtextColor,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          child,
+        ],
       ),
     );
   }
@@ -82,30 +122,26 @@ class PostSigninInfoBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark
-            ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.55)
-            : const Color(0xFFF6F8F8),
-        borderRadius: BorderRadius.circular(10),
+            ? SaaSTheme.surfaceDark.withValues(alpha: 0.55)
+            : SaaSTheme.bgLightSecondary,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark
-              ? colorScheme.outline.withValues(alpha: 0.5)
-              : const Color(0xFFE0E8E8),
+          color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight,
         ),
       ),
       child: Text(
         text,
         style: TextStyle(
           fontSize: 13,
-          color: isDark
-              ? colorScheme.onSurface.withValues(alpha: 0.92)
-              : colorScheme.onSurface.withValues(alpha: 0.82),
+          height: 1.45,
+          color: isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight,
         ),
       ),
     );

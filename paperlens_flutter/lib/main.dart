@@ -3,15 +3,19 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:clerk_flutter/clerk_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:google_fonts/google_fonts.dart';
+
 import 'screens/auth_landing_page.dart';
+import 'screens/landing/landing_theme.dart';
 import 'screens/migration_step_one_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await dotenv.load(fileName: '.env');
-  } catch (_) {
-    // Allow startup to continue if .env is missing in local setups.
+    debugPrint('PaperLens: Environment variables loaded successfully.');
+  } catch (e) {
+    debugPrint('PaperLens Warning: Could not load .env file: $e');
   }
 
   runApp(const PaperLensFlutterApp());
@@ -30,10 +34,13 @@ class _PaperLensFlutterAppState extends State<PaperLensFlutterApp> {
 
   String _publishableKey() {
     final primary = dotenv.maybeGet('CLERK_PUBLISHABLE_KEY')?.trim() ?? '';
-    if (primary.isNotEmpty) {
-      return primary;
-    }
-    return dotenv.maybeGet('VITE_CLERK_PUBLISHABLE_KEY')?.trim() ?? '';
+    if (primary.isNotEmpty) return primary;
+    
+    final secondary = dotenv.maybeGet('VITE_CLERK_PUBLISHABLE_KEY')?.trim() ?? '';
+    if (secondary.isNotEmpty) return secondary;
+
+    debugPrint('PaperLens Error: CLERK_PUBLISHABLE_KEY not found in .env');
+    return '';
   }
 
   @override
@@ -72,22 +79,64 @@ class _PaperLensFlutterAppState extends State<PaperLensFlutterApp> {
 
   @override
   Widget build(BuildContext context) {
+    final publishableKey = _publishableKey();
+
+    // 1. Handle missing configuration immediately
+    if (publishableKey.isEmpty) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          backgroundColor: const Color(0xFF0A1614),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Configuration Error',
+                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'CLERK_PUBLISHABLE_KEY is missing in your .env file.\n\nPlease add it and restart the app.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final lightScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF005E54),
+      seedColor: SaaSTheme.primaryTealDark,
+      primary: SaaSTheme.primaryTealDark,
+      secondary: SaaSTheme.accentViolet,
+      surface: SaaSTheme.surfaceLight,
       brightness: Brightness.light,
     );
+
     final darkScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF2AAE9F),
+      seedColor: SaaSTheme.primaryTeal,
+      primary: SaaSTheme.primaryTeal,
+      secondary: SaaSTheme.accentViolet,
+      surface: SaaSTheme.surfaceDark,
       brightness: Brightness.dark,
     );
 
     final app = MaterialApp(
-      title: 'PaperLens',
+      title: 'PaperLens AI',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: lightScheme,
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF0F5F5),
+        textTheme: GoogleFonts.plusJakartaSansTextTheme(ThemeData.light().textTheme),
+        scaffoldBackgroundColor: SaaSTheme.bgLight,
         appBarTheme: const AppBarTheme(
           centerTitle: false,
           backgroundColor: Colors.transparent,
@@ -95,21 +144,56 @@ class _PaperLensFlutterAppState extends State<PaperLensFlutterApp> {
         ),
         cardTheme: CardThemeData(
           elevation: 0,
-          color: Colors.white,
+          color: SaaSTheme.cardLight,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: SaaSTheme.borderLight, width: 1),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: SaaSTheme.cardLightHover,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: SaaSTheme.borderLight),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: SaaSTheme.borderLight),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: SaaSTheme.primaryTealDark, width: 2),
           ),
         ),
       ),
       darkTheme: ThemeData(
         colorScheme: darkScheme,
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF0A1614),
+        textTheme: GoogleFonts.plusJakartaSansTextTheme(ThemeData.dark().textTheme),
+        scaffoldBackgroundColor: SaaSTheme.bgDark,
         cardTheme: CardThemeData(
           elevation: 0,
-          color: const Color(0xFF13211F),
+          color: SaaSTheme.cardDark,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: SaaSTheme.borderDark, width: 1),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: SaaSTheme.surfaceDark,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: SaaSTheme.borderDark),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: SaaSTheme.borderDark),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: SaaSTheme.primaryTeal, width: 2),
           ),
         ),
       ),
@@ -131,11 +215,6 @@ class _PaperLensFlutterAppState extends State<PaperLensFlutterApp> {
         },
       ),
     );
-
-    final publishableKey = _publishableKey();
-    if (publishableKey.isEmpty) {
-      return app;
-    }
 
     return ClerkAuth(
       config: ClerkAuthConfig(publishableKey: publishableKey),

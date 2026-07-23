@@ -1,10 +1,11 @@
 import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../services/api_service.dart';
+import '../../landing/landing_theme.dart';
 import '../shared_widgets.dart';
 
 class GapDetectionTab extends StatefulWidget {
@@ -119,48 +120,61 @@ class _GapDetectionTabState extends State<GapDetectionTab> {
     _persistSession();
   }
 
-  Future<void> _detect() async {
-    if (_mode == 'text' && _textController.text.trim().isEmpty) {
-      setState(() => _status = 'Paste project text first.');
-      _persistSession();
-      return;
-    }
-    if (_mode == 'file' && (_filePath == null || _filePath!.isEmpty)) {
-      setState(() => _status = 'Pick a PDF or DOCX file first.');
-      _persistSession();
-      return;
+  Future<void> _detectGaps() async {
+    if (_loading) return;
+
+    if (_mode == 'text') {
+      final value = _textController.text.trim();
+      if (value.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Paste raw notes or literature text first.')),
+        );
+        return;
+      }
+    } else {
+      final path = _filePath ?? '';
+      if (path.isEmpty || !File(path).existsSync()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a valid PDF/DOCX file.')),
+        );
+        return;
+      }
     }
 
     setState(() {
       _loading = true;
-      _status = '';
+      _status = 'AI is scanning literature for unaddressed research gaps...';
       _gaps = const [];
       _expandedGapIndex = null;
     });
     _persistSession();
 
     try {
-      final data = await _withTokenRetry(
-        (api) => _mode == 'text'
-            ? api.detectGapsFromText(text: _textController.text.trim())
-            : api.detectGapsFromFile(File(_filePath!)),
-      );
+      final response = await _withTokenRetry((api) {
+        if (_mode == 'text') {
+          return api.detectGapsFromText(text: _textController.text.trim());
+        } else {
+          return api.detectGapsFromFile(File(_filePath!));
+        }
+      });
 
-      final gaps = (data['gaps'] as List<dynamic>? ?? const [])
-          .whereType<Map<String, dynamic>>()
+      final rawList = response['gaps'] as List<dynamic>? ?? const [];
+      final parsed = rawList
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
           .toList(growable: false);
 
+      if (!mounted) return;
       setState(() {
-        _gaps = gaps;
-        _expandedGapIndex = gaps.isEmpty ? null : 0;
-        _status = gaps.isEmpty
-            ? 'No gaps returned by backend.'
-            : 'Detected ${gaps.length} research gaps.';
+        _gaps = parsed;
+        _status = 'Successfully identified ${parsed.length} research gap opportunities!';
       });
       _persistSession();
     } catch (e) {
-      setState(() => _status = 'Gap detection failed: $e');
-      _persistSession();
+      if (!mounted) return;
+      setState(() {
+        _status = 'Gap detection failed: $e';
+      });
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -169,387 +183,276 @@ class _GapDetectionTabState extends State<GapDetectionTab> {
     }
   }
 
-  Color _severityColor(String severity) {
-    switch (severity.toLowerCase()) {
-      case 'high':
-        return const Color(0xFFC62828);
-      case 'medium':
-        return const Color(0xFFEF6C00);
-      default:
-        return const Color(0xFF546E7A);
-    }
-  }
+  Future<void> _saveGap(Map<String, dynamic> gap) async {
+    if (_saving) return;
+    final title = (gap['title'] ?? gap['gap_title'] ?? 'Research Gap').toString();
+    final summary = (gap['description'] ?? gap['summary'] ?? '').toString();
 
-  Future<void> _copyReport() async {
-    if (_gaps.isEmpty) {
-      setState(() => _status = 'No gap report available to copy.');
-      _persistSession();
-      return;
-    }
-
-    final report = _gaps
-        .map(
-          (gap) => [
-            (gap['title'] ?? 'Untitled gap').toString(),
-            'Severity: ${(gap['severity'] ?? 'low').toString()}',
-            'Gap: ${(gap['explanation'] ?? '').toString()}',
-            'Suggestion: ${(gap['suggestion'] ?? '').toString()}',
-          ].join('\n'),
-        )
-        .join('\n\n');
-
-    await Clipboard.setData(ClipboardData(text: report));
-    if (!mounted) return;
-    setState(() => _status = 'Gap report copied to clipboard.');
-    _persistSession();
-  }
-
-  Future<void> _saveReport() async {
-    if (_gaps.isEmpty) {
-      setState(() => _status = 'Run detection before saving.');
-      _persistSession();
-      return;
-    }
-
-    if (widget.getJwtToken().trim().isEmpty) {
-      setState(
-        () => _status = 'Session token not ready. Please wait and retry.',
-      );
-      _persistSession();
-      return;
-    }
-
-    setState(() {
-      _saving = true;
-      _status = '';
-    });
-    _persistSession();
-
+    setState(() => _saving = true);
     try {
-      final title = _mode == 'text'
-          ? 'Gap Analysis (Project Plan)'
-          : 'Gap Analysis (Uploaded Paper)';
-      final summary = '${_gaps.length} research gaps identified';
-
-      await _withTokenRetry(
-        (api) => api.createSavedItem(
-          section: 'gap_detection',
+      await _withTokenRetry((api) {
+        return api.createSavedItem(
+          section: 'gap',
           title: title,
-          summary: summary,
-          payload: {
-            'mode': _mode,
-            'source_text': _mode == 'text' ? _textController.text.trim() : null,
-            'file_name': _filePath?.split(Platform.pathSeparator).last,
-            'gaps': _gaps,
-          },
-        ),
-      );
+          summary: summary.length > 140 ? '${summary.substring(0, 140)}...' : summary,
+          payload: gap,
+        );
+      });
       if (!mounted) return;
-      setState(() => _status = 'Gap report saved.');
-      _persistSession();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved "$title" to your Research Workspace!')),
+      );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _status = 'Save failed: $e');
-      _persistSession();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save gap item: $e')),
+      );
     } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-        _persistSession();
-      }
+      if (mounted) setState(() => _saving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight;
+    final subtextColor = isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight;
 
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        PostSigninSectionCard(
-          title: 'Gap Detection Engine',
-          icon: Icons.search_rounded,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isDark
-                        ? const [Color(0xFF3A2A47), Color(0xFF563A6D)]
-                        : const [Color(0xFFF3EBFC), Color(0xFFEBDDFA)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark
-                        ? const Color(0xFF755794)
-                        : const Color(0xFFDAC5F2),
-                  ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PostSigninSectionCard(
+            title: 'Research Gap Detection Studio',
+            subtitle: 'Uncover unaddressed limitations, contradictory claims, and high-impact open research questions.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Input Mode Segmented Control
+                Row(
+                  children: [
+                    _modeChip('text', 'Paste Literature Notes', Icons.text_snippet_rounded, isDark),
+                    const SizedBox(width: 8),
+                    _modeChip('file', 'Upload Paper Document', Icons.upload_file_rounded, isDark),
+                  ],
                 ),
-                child: Text(
-                  'Identify hidden weaknesses in a project plan or uploaded paper, then convert those weaknesses into concrete, actionable improvements.',
-                  textAlign: TextAlign.justify,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : const Color(0xFF4B3560),
-                    height: 1.35,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'text', label: Text('Project Plan')),
-                  ButtonSegment(value: 'file', label: Text('Upload Paper')),
-                ],
-                selected: {_mode},
-                onSelectionChanged: (selection) {
-                  setState(() => _mode = selection.first);
-                  _persistSession();
-                },
-              ),
-              const SizedBox(height: 10),
-              if (_mode == 'text')
-                TextField(
-                  controller: _textController,
-                  minLines: 6,
-                  maxLines: 12,
-                  decoration: InputDecoration(
-                    labelText: 'Project Plan / Research Idea',
-                    hintText: 'Paste your project plan to detect research gaps',
-                    border: const OutlineInputBorder(),
-                    filled: true,
-                    fillColor: isDark
-                        ? colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.3,
-                          )
-                        : Colors.white,
-                  ),
-                )
-              else
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.25,
-                          )
-                        : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark
-                          ? colorScheme.outline.withValues(alpha: 0.45)
-                          : const Color(0xFFE4EAF2),
+                const SizedBox(height: 16),
+
+                if (_mode == 'text') ...[
+                  TextField(
+                    controller: _textController,
+                    minLines: 4,
+                    maxLines: 7,
+                    decoration: InputDecoration(
+                      hintText: 'Paste literature excerpts, discussion notes, or abstract summaries...',
+                      hintStyle: TextStyle(fontSize: 12, color: subtextColor),
                     ),
                   ),
-                  child: Row(
+                ] else ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: isDark ? SaaSTheme.surfaceDark.withValues(alpha: 0.6) : SaaSTheme.bgLightSecondary,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.file_present_rounded, size: 32, color: isDark ? SaaSTheme.accentViolet : SaaSTheme.primaryTealDark),
+                        const SizedBox(height: 8),
+                        Text(
+                          _filePath != null ? File(_filePath!).path.split(Platform.pathSeparator).last : 'No document selected yet',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: textColor),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _pickFile,
+                          icon: const Icon(Icons.folder_open_rounded, size: 16),
+                          label: Text(_filePath != null ? 'Choose Different File' : 'Browse PDF/DOCX File'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: textColor,
+                            side: BorderSide(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+
+                if (_status.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(_status, style: TextStyle(fontSize: 12, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark, fontWeight: FontWeight.w600)),
+                  ),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _loading ? null : _detectGaps,
+                    icon: _loading
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF041814)))
+                        : const Icon(Icons.travel_explore_rounded, size: 18),
+                    label: Text(
+                      _loading ? 'Mining Research Gaps...' : 'Detect Hidden Research Gaps',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                      foregroundColor: const Color(0xFF041814),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Discovered Gaps Grid
+          if (_gaps.isNotEmpty) ...[
+            Text(
+              'Identified Research Opportunities (${_gaps.length})',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor),
+            ),
+            const SizedBox(height: 12),
+            ...List.generate(_gaps.length, (index) {
+              final gap = _gaps[index];
+              return _gapCard(gap, index, isDark, textColor, subtextColor);
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _modeChip(String key, String label, IconData icon, bool isDark) {
+    final isSelected = _mode == key;
+    final activeColor = isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark;
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _mode = key),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? activeColor.withValues(alpha: 0.15) : (isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: isSelected ? activeColor : (isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: isSelected ? activeColor : (isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight)),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500, color: isSelected ? activeColor : (isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _gapCard(Map<String, dynamic> gap, int index, bool isDark, Color textColor, Color subtextColor) {
+    final title = (gap['title'] ?? gap['gap_title'] ?? 'Research Gap Opportunity #${index + 1}').toString();
+    final description = (gap['description'] ?? gap['summary'] ?? '').toString();
+    final severity = (gap['severity'] ?? gap['impact'] ?? 'HIGH').toString().toUpperCase();
+    final isExpanded = _expandedGapIndex == index;
+
+    final severityColor = severity.contains('HIGH')
+        ? SaaSTheme.accentMagenta
+        : (severity.contains('MED') ? SaaSTheme.accentAmber : SaaSTheme.accentEmerald);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 16),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: isExpanded,
+          onExpansionChanged: (exp) => setState(() => _expandedGapIndex = exp ? index : null),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: severityColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  severity,
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: severityColor),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor),
+                ),
+              ),
+            ],
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    description,
+                    style: TextStyle(fontSize: 13, height: 1.5, color: subtextColor),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OutlinedButton.icon(
-                        onPressed: _loading ? null : _pickFile,
-                        icon: const Icon(Icons.upload_file_rounded),
-                        label: const Text('Pick PDF/DOCX'),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: '$title\n\n$description'));
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied gap brief to clipboard!')));
+                        },
+                        icon: const Icon(Icons.copy_rounded, size: 14),
+                        label: const Text('Copy Brief'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textColor,
+                          side: BorderSide(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _filePath == null
-                              ? 'No file selected'
-                              : _filePath!.split(Platform.pathSeparator).last,
-                          overflow: TextOverflow.ellipsis,
+                      ElevatedButton.icon(
+                        onPressed: () => _saveGap(gap),
+                        icon: const Icon(Icons.bookmark_border_rounded, size: 14),
+                        label: const Text('Save to Workspace'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+                          foregroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                          elevation: 0,
                         ),
                       ),
                     ],
                   ),
-                ),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: _loading ? null : _detect,
-                icon: _loading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2.2),
-                      )
-                    : const Icon(Icons.auto_awesome_rounded),
-                label: Text(_loading ? 'Detecting...' : 'Detect Gaps'),
+                ],
               ),
-              if (_status.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                PostSigninInfoBox(text: _status),
-              ],
-            ],
-          ),
+            ),
+          ],
         ),
-        const SizedBox(height: 10),
-        if (_gaps.isEmpty)
-          const PostSigninInfoBox(text: 'Run detection to see identified gaps.')
-        else ...[
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${_gaps.length} gaps identified',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: _saving ? null : _saveReport,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.bookmark_add_rounded, size: 18),
-                label: Text(_saving ? 'Saving...' : 'Save'),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: _copyReport,
-                icon: const Icon(Icons.copy_all_rounded, size: 18),
-                label: const Text('Copy'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ..._gaps.asMap().entries.map((entry) {
-            final index = entry.key;
-            final gap = entry.value;
-            final severity = (gap['severity'] ?? 'low').toString();
-            final color = _severityColor(severity);
-            final isExpanded = _expandedGapIndex == index;
-            final explanation = (gap['explanation'] ?? '').toString();
-            final suggestion = (gap['suggestion'] ?? '').toString();
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    InkWell(
-                      onTap: () {
-                        setState(() {
-                          _expandedGapIndex = isExpanded ? null : index;
-                        });
-                        _persistSession();
-                      },
-                      borderRadius: BorderRadius.circular(10),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                (gap['title'] ?? 'Untitled gap').toString(),
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                severity.toUpperCase(),
-                                style: TextStyle(
-                                  color: color,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Icon(
-                              isExpanded
-                                  ? Icons.keyboard_arrow_up_rounded
-                                  : Icons.keyboard_arrow_down_rounded,
-                              color: colorScheme.onSurface.withValues(
-                                alpha: 0.75,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (!isExpanded)
-                      Text(
-                        explanation,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.justify,
-                        style: TextStyle(
-                          color: colorScheme.onSurface.withValues(alpha: 0.82),
-                          height: 1.34,
-                        ),
-                      ),
-                    AnimatedCrossFade(
-                      duration: const Duration(milliseconds: 220),
-                      crossFadeState: isExpanded
-                          ? CrossFadeState.showSecond
-                          : CrossFadeState.showFirst,
-                      firstChild: const SizedBox.shrink(),
-                      secondChild: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            explanation,
-                            textAlign: TextAlign.justify,
-                            style: TextStyle(
-                              color: colorScheme.onSurface.withValues(
-                                alpha: 0.9,
-                              ),
-                              height: 1.38,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(0xFF143A32)
-                                  : const Color(0xFFE9F4F2),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: isDark
-                                    ? const Color(0xFF2A665B)
-                                    : const Color(0xFFCAE2DE),
-                              ),
-                            ),
-                            child: Text(
-                              'Suggestion: $suggestion',
-                              textAlign: TextAlign.justify,
-                              style: const TextStyle(height: 1.35),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
-      ],
-    );
+      ),
+    ).animate().fadeIn(delay: (index * 60).ms, duration: 400.ms);
   }
 }

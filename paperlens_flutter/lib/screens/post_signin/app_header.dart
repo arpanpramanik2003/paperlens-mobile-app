@@ -1,14 +1,20 @@
+import 'package:clerk_flutter/clerk_flutter.dart';
 import 'package:flutter/material.dart';
+import '../landing/landing_theme.dart';
 
 class PostSigninHeader extends StatelessWidget {
   const PostSigninHeader({
     super.key,
     required this.sectionIndex,
     required this.onRefreshToken,
+    this.isDarkMode = true,
+    this.onToggleTheme,
   });
 
   final int sectionIndex;
   final VoidCallback onRefreshToken;
+  final bool isDarkMode;
+  final VoidCallback? onToggleTheme;
 
   static const _meta = [
     (
@@ -28,16 +34,10 @@ class PostSigninHeader extends StatelessWidget {
       ['Upload PDF or DOCX', 'Context-aware Q&A', 'Evidence-first summaries'],
     ),
     (
-      'Experiment Planner',
-      'Convert topics into practical, stepwise execution plans tailored by difficulty and clarity of scope.',
-      Icons.science_rounded,
-      ['Guided plan steps', 'Difficulty presets', 'Execution-friendly format'],
-    ),
-    (
-      'Problem Generator',
-      'Generate novel research ideas and expand promising directions into structured implementation briefs.',
-      Icons.lightbulb_rounded,
-      ['Idea brainstorming', 'Structured expansions', 'Save reusable briefs'],
+      'Citation Intelligence',
+      'Inspect references, locate missing links, and build stronger reading paths for more rigorous projects.',
+      Icons.auto_graph_rounded,
+      ['Citation mapping', 'Coverage gaps', 'Reading guidance'],
     ),
     (
       'Gap Detection',
@@ -46,16 +46,22 @@ class PostSigninHeader extends StatelessWidget {
       ['Text or file input', 'Opportunity surfacing', 'Action suggestions'],
     ),
     (
+      'Problem Generator',
+      'Generate novel research ideas and expand promising directions into structured implementation briefs.',
+      Icons.lightbulb_rounded,
+      ['Idea brainstorming', 'Structured expansions', 'Save reusable briefs'],
+    ),
+    (
       'Dataset and Benchmark Finder',
       'Discover fitting datasets, benchmark targets, and tool recommendations aligned with your project scope.',
       Icons.dataset_rounded,
       ['Curated datasets', 'Benchmark mapping', 'Technology suggestions'],
     ),
     (
-      'Citation Intelligence',
-      'Inspect references, locate missing links, and build stronger reading paths for more rigorous projects.',
-      Icons.auto_graph_rounded,
-      ['Citation mapping', 'Coverage gaps', 'Reading guidance'],
+      'Experiment Planner',
+      'Convert topics into practical, stepwise execution plans tailored by difficulty and clarity of scope.',
+      Icons.science_rounded,
+      ['Guided plan steps', 'Difficulty presets', 'Execution-friendly format'],
     ),
     (
       'Settings and Workspace',
@@ -67,95 +73,220 @@ class PostSigninHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode;
     final safeIndex = sectionIndex.clamp(0, _meta.length - 1);
     final section = _meta[safeIndex];
 
+    final textColor = isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight;
+    final subtextColor = isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight;
+
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-      padding: const EdgeInsets.all(16),
-      constraints: const BoxConstraints(minHeight: 178, maxHeight: 178),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0D3B35), Color(0xFF0E5D52)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      decoration: SaaSTheme.glassCardDecoration(
+        isDark: isDark,
+        borderRadius: 20,
+        isHovered: true,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(section.$3, color: Colors.white),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  section.$1,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: onRefreshToken,
-                icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                tooltip: 'Refresh session token',
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            section.$2,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-          ),
-          const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: section.$4
-                  .map(
-                    (point) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Top Row: Section Icon + Title + User Badge & Actions
+                  Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          point,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
+                          color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)
+                                .withValues(alpha: 0.3),
                           ),
                         ),
+                        child: Icon(
+                          section.$3,
+                          color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                          size: 22,
+                        ),
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    section.$1,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: SaaSTheme.primaryTeal,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'PaperLens Workspace Active',
+                                  style: TextStyle(
+                                    color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // User Profile Avatar (from Clerk if available)
+                      Builder(
+                        builder: (context) {
+                          try {
+                            final auth = ClerkAuth.of(context, listen: true);
+                            final user = auth.user;
+                            final firstName = user?.firstName ?? 'User';
+                            final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U';
+
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? SaaSTheme.surfaceDark
+                                    : SaaSTheme.bgLightSecondary,
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 12,
+                                    backgroundColor: SaaSTheme.primaryTeal,
+                                    child: Text(
+                                      initial,
+                                      style: const TextStyle(
+                                        color: Color(0xFF041814),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    firstName,
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          } catch (_) {
+                            return const SizedBox.shrink();
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 6),
+
+                      IconButton(
+                        onPressed: onRefreshToken,
+                        icon: Icon(
+                          Icons.sync_rounded,
+                          color: isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight,
+                          size: 18,
+                        ),
+                        tooltip: 'Sync Session Token',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    section.$2,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: subtextColor,
+                      fontSize: 13,
+                      height: 1.4,
                     ),
-                  )
-                  .toList(growable: false),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Feature Pills
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: section.$4
+                          .map(
+                            (point) => Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? SaaSTheme.surfaceDark.withValues(alpha: 0.7)
+                                      : SaaSTheme.bgLightSecondary,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight,
+                                  ),
+                                ),
+                                child: Text(
+                                  point,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

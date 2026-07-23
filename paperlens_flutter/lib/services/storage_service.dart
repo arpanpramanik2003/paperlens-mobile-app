@@ -5,7 +5,7 @@ class StorageService {
   static const _apiBaseUrlKey = 'paperlens_api_base_url';
   static const _jwtTokenKey = 'paperlens_jwt_token';
   static const _legacyEmulatorBaseUrl = 'http://10.0.2.2:8000';
-  static const _fallbackApiBaseUrl = 'https://paperlens-ai.onrender.com';
+  static const _fallbackApiBaseUrl = 'https://paperlens-ai-phn3.onrender.com';
 
   String _defaultApiBaseUrl() {
     try {

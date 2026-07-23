@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../../landing/landing_theme.dart';
 import '../shared_widgets.dart';
 
 class _StructuredTextView extends StatelessWidget {
@@ -10,26 +10,24 @@ class _StructuredTextView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final headingColor = isDark
-        ? const Color(0xFFE6F3F0)
-        : const Color(0xFF0E3C36);
-    final bodyColor = isDark
-        ? const Color(0xFFD1E5E0)
-        : const Color(0xFF2E4742);
+    final headingColor = isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight;
+    final bodyColor = isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight;
+
     final lines = text.split('\n');
     final spans = <TextSpan>[];
 
     for (final line in lines) {
       final trimmed = line.trimLeft();
-      if (trimmed.startsWith('##')) {
-        final heading = trimmed.replaceFirst(RegExp(r'^##\s*'), '').trim();
+      if (trimmed.startsWith('##') || trimmed.startsWith('#')) {
+        final heading = trimmed.replaceAll(RegExp(r'^#+\s*'), '').trim();
         spans.add(
           TextSpan(
-            text: '$heading\n',
+            text: '\n$heading\n',
             style: TextStyle(
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
               color: headingColor,
-              height: 1.45,
+              height: 1.5,
             ),
           ),
         );
@@ -39,8 +37,9 @@ class _StructuredTextView extends StatelessWidget {
             text: '$line\n',
             style: TextStyle(
               fontWeight: FontWeight.w500,
+              fontSize: 13,
               color: bodyColor,
-              height: 1.45,
+              height: 1.55,
             ),
           ),
         );
@@ -49,7 +48,7 @@ class _StructuredTextView extends StatelessWidget {
 
     return SelectableText.rich(
       TextSpan(children: spans),
-      textAlign: TextAlign.justify,
+      textAlign: TextAlign.start,
     );
   }
 }
@@ -61,8 +60,7 @@ class _TypingDots extends StatefulWidget {
   State<_TypingDots> createState() => _TypingDotsState();
 }
 
-class _TypingDotsState extends State<_TypingDots>
-    with SingleTickerProviderStateMixin {
+class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
@@ -70,7 +68,7 @@ class _TypingDotsState extends State<_TypingDots>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1100),
+      duration: const Duration(milliseconds: 1000),
     )..repeat();
   }
 
@@ -82,6 +80,7 @@ class _TypingDotsState extends State<_TypingDots>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
@@ -99,8 +98,8 @@ class _TypingDotsState extends State<_TypingDots>
             child: Container(
               width: 6,
               height: 6,
-              decoration: const BoxDecoration(
-                color: Color(0xFF2A4A44),
+              decoration: BoxDecoration(
+                color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
                 shape: BoxShape.circle,
               ),
             ),
@@ -145,8 +144,7 @@ class PostSigninAnalyzerSection extends StatefulWidget {
   final List<Map<String, String>> chatMessages;
 
   @override
-  State<PostSigninAnalyzerSection> createState() =>
-      _PostSigninAnalyzerSectionState();
+  State<PostSigninAnalyzerSection> createState() => _PostSigninAnalyzerSectionState();
 }
 
 class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
@@ -184,48 +182,38 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bubbleColor = isUser
-        ? const Color(0xFF0E5D52)
-        : isDark
-        ? const Color(0xFF1A2D2A)
-        : const Color(0xFFF2F7F6);
-    final textColor = isUser
-        ? Colors.white
-        : isDark
-        ? const Color(0xFFE2F0ED)
-        : const Color(0xFF1F3A35);
+        ? (isDark ? SaaSTheme.primaryTeal.withValues(alpha: 0.2) : SaaSTheme.primaryTealDark.withValues(alpha: 0.15))
+        : (isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary);
+    final textColor = isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight;
+    final borderColor = isUser
+        ? (isDark ? SaaSTheme.primaryTeal.withValues(alpha: 0.4) : SaaSTheme.primaryTealDark)
+        : (isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight);
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
+        constraints: const BoxConstraints(maxWidth: 440),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           decoration: BoxDecoration(
             color: bubbleColor,
             borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(14),
-              topRight: const Radius.circular(14),
-              bottomLeft: Radius.circular(isUser ? 14 : 4),
-              bottomRight: Radius.circular(isUser ? 4 : 14),
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(isUser ? 16 : 4),
+              bottomRight: Radius.circular(isUser ? 4 : 16),
             ),
-            border: isUser
-                ? null
-                : Border.all(
-                    color: isDark
-                        ? const Color(0xFF30524E)
-                        : const Color(0xFFDDE8E5),
-                    width: 1,
-                  ),
+            border: Border.all(color: borderColor, width: 1),
           ),
           child: SelectableText(
             text,
             style: TextStyle(
               color: textColor,
-              height: 1.42,
+              height: 1.45,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
-            textAlign: TextAlign.left,
           ),
         ),
       ),
@@ -234,349 +222,306 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
 
   @override
   Widget build(BuildContext context) {
-    final questionAnchorKey = GlobalKey();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final readableTitleColor = isDark
-        ? const Color(0xFFE6F2EF)
-        : const Color(0xFF163A34);
-    final readableBodyColor = isDark
-        ? const Color(0xFFD6E9E5)
-        : const Color(0xFF2B4A44);
-    final inputBorderColor = isDark
-        ? const Color(0xFF3A5F59)
-        : const Color(0xFFBFD3CF);
+    final textColor = isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight;
+    final subtextColor = isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight;
 
-    return PostSigninSectionCard(
-      title: 'Paper Analyzer Studio',
-      icon: Icons.auto_awesome_rounded,
+    final hasDocument = widget.docId.isNotEmpty;
+    final hasAnalysis = widget.analysisText.trim().isNotEmpty;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0E5D52), Color(0xFF197567)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(14),
-            ),
+          // Section Card Header
+          PostSigninSectionCard(
+            title: 'Paper Analyzer Studio',
+            subtitle: 'Upload any academic paper PDF or DOCX to extract key equations, methodologies, and context-aware Q&A.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.summarize_rounded, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Analyze and Ask',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Upload a paper, get a structured summary, then ask focused questions to clarify methods, results, and limitations.',
-                  style: TextStyle(color: Colors.white70, height: 1.38),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: widget.loadingAnalyze
-                      ? null
-                      : widget.onAnalyzePaper,
-                  icon: widget.loadingAnalyze
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2.2),
-                        )
-                      : const Icon(Icons.upload_file_rounded),
-                  label: Text(
-                    widget.loadingAnalyze
-                        ? 'Analyzing document...'
-                        : 'Pick and Analyze PDF/DOCX',
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF0E5D52),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (widget.docId.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF1C302D)
-                    : const Color(0xFFEAF4F2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                'Active document: ${widget.docId}',
-                style: TextStyle(
-                  color: isDark
-                      ? const Color(0xFFE0F0ED)
-                      : const Color(0xFF0D4D44),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-          if (widget.analysisText.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              'Analysis Summary',
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF142523)
-                    : const Color(0xFFF8FBFB),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark
-                      ? const Color(0xFF2C4A46)
-                      : const Color(0xFFE0E8E8),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isDark
-                        ? const Color(0x16000000)
-                        : const Color(0x10004D40),
-                    blurRadius: 9,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: _StructuredTextView(text: widget.analysisText),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF162B28)
-                    : const Color(0xFFF2F8F7),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isDark
-                      ? const Color(0xFF31514C)
-                      : const Color(0xFFDCE9E6),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Need to ask a follow-up quickly?',
-                      style: TextStyle(
-                        color: isDark
-                            ? const Color(0xFFD8ECE8)
-                            : const Color(0xFF2B4E48),
-                        fontWeight: FontWeight.w600,
-                      ),
+                // Upload Dropzone Box
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isDark ? SaaSTheme.surfaceDark.withValues(alpha: 0.6) : SaaSTheme.bgLightSecondary,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isDark ? SaaSTheme.borderDarkGlowing : SaaSTheme.borderLight,
+                      width: 1.2,
                     ),
                   ),
-                  TextButton.icon(
-                    onPressed: () {
-                      final targetContext = questionAnchorKey.currentContext;
-                      if (targetContext == null) return;
-                      Scrollable.ensureVisible(
-                        targetContext,
-                        duration: const Duration(milliseconds: 360),
-                        curve: Curves.easeOutCubic,
-                        alignment: 0.08,
-                      );
-                    },
-                    icon: const Icon(Icons.south_rounded),
-                    label: const Text('Question Assistant'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Divider(
-              height: 1,
-              color: isDark ? const Color(0xFF30514C) : const Color(0xFFDCE6E4),
-            ),
-          ],
-          const SizedBox(height: 12),
-          Container(
-            key: questionAnchorKey,
-            width: double.infinity,
-            height: 460,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF111F1D) : const Color(0xFFFAFCFC),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDark
-                    ? const Color(0xFF2B4944)
-                    : const Color(0xFFDCE8E5),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Conversation',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: readableTitleColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: widget.chatMessages.isEmpty && !widget.loadingAsk
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Text(
-                              'Start a conversation by asking your first question about the analyzed paper.',
-                              style: TextStyle(
-                                color: Color(0xFFA3BDB8),
-                                fontWeight: FontWeight.w500,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        )
-                      : ListView(
-                          controller: _chatScrollController,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark).withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.cloud_upload_rounded,
+                          size: 28,
+                          color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Upload PDF or DOCX Research Paper',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Supports arXiv, IEEE, Springer, ACM, and custom PDF documents.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: subtextColor),
+                      ),
+                      const SizedBox(height: 16),
+
+                      if (widget.loadingAnalyze)
+                        Column(
                           children: [
-                            ...widget.chatMessages.map((message) {
-                              final role = (message['role'] ?? '')
-                                  .toLowerCase();
-                              final content = (message['content'] ?? '').trim();
-                              if (content.isEmpty) {
-                                return const SizedBox.shrink();
-                              }
-                              return _chatBubble(
-                                context: context,
-                                isUser: role == 'user',
-                                text: content,
-                              );
-                            }),
-                            if (widget.loadingAsk)
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 6),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 9,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? const Color(0xFF1B2F2B)
-                                        : const Color(0xFFEAF4F2),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        'Assistant is typing',
-                                        style: TextStyle(
-                                          color: isDark
-                                              ? Color(0xFFE0F0ED)
-                                              : Color(0xFF2A4A44),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      SizedBox(width: 6),
-                                      _TypingDots(),
-                                    ],
-                                  ),
-                                ),
+                            LinearProgressIndicator(
+                              color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                              backgroundColor: isDark ? SaaSTheme.bgDarkSecondary : SaaSTheme.bgLightSecondary,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Analyzing paper equations & findings...',
+                              style: TextStyle(fontSize: 12, color: subtextColor, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        )
+                      else
+                        ElevatedButton.icon(
+                          onPressed: widget.onAnalyzePaper,
+                          icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+                          label: Text(
+                            hasDocument ? 'Select Different Paper' : 'Choose Paper File',
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                            foregroundColor: const Color(0xFF041814),
+                            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
+                if (hasDocument) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: SaaSTheme.primaryTeal.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_circle_rounded, size: 14, color: SaaSTheme.primaryTeal),
+                            const SizedBox(width: 6),
+                            Text(
+                              'ACTIVE DOC: ${widget.docId}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
                               ),
+                            ),
                           ],
                         ),
-                ),
-                const SizedBox(height: 8),
-                Divider(
-                  height: 1,
-                  color: isDark
-                      ? const Color(0xFF30514C)
-                      : const Color(0xFFDCE6E4),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 48),
-                        child: TextField(
-                          controller: widget.questionController,
-                          minLines: 1,
-                          maxLines: 4,
-                          style: TextStyle(
-                            color: readableBodyColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          cursorColor: const Color(0xFF0E5D52),
-                          decoration: InputDecoration(
-                            hintText: 'Ask',
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 12,
-                            ),
-                            hintStyle: TextStyle(
-                              color: isDark
-                                  ? const Color(0xFF93AEA8)
-                                  : const Color(0xFF6D8A84),
-                            ),
-                            filled: true,
-                            fillColor: isDark
-                                ? const Color(0xFF1B2F2B)
-                                : const Color(0xFFFFFFFF),
-                            border: const OutlineInputBorder(),
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide(color: inputBorderColor),
-                            ),
-                            focusedBorder: const OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Color(0xFF0E5D52),
-                                width: 1.4,
-                              ),
-                            ),
-                          ),
-                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: widget.loadingAsk
-                          ? null
-                          : widget.onAskQuestion,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(72, 48),
-                      ),
-                      child: Text(widget.loadingAsk ? '...' : 'Send'),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
+          const SizedBox(height: 20),
+
+          // Main Dual-Pane Output
+          if (hasAnalysis)
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 720;
+
+                return Flex(
+                  direction: isWide ? Axis.horizontal : Axis.vertical,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Analysis Summary Box
+                    Expanded(
+                      flex: isWide ? 1 : 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: SaaSTheme.glassCardDecoration(
+                          isDark: isDark,
+                          borderRadius: 20,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.summarize_rounded, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'AI Synthesis Summary',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            _StructuredTextView(text: widget.analysisText),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 20),
+
+                    // Contextual Q&A Chat Box
+                    Expanded(
+                      flex: isWide ? 1 : 0,
+                      child: Container(
+                        height: 520,
+                        padding: const EdgeInsets.all(18),
+                        decoration: SaaSTheme.glassCardDecoration(
+                          isDark: isDark,
+                          borderRadius: 20,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.chat_rounded, color: isDark ? SaaSTheme.accentViolet : SaaSTheme.primaryTealDark, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Contextual Paper Chat',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Suggested prompt chips
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  _promptChip('Explain core equations', isDark),
+                                  _promptChip('What are key datasets?', isDark),
+                                  _promptChip('Summarize limitations', isDark),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Chat message list
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isDark ? SaaSTheme.bgDarkSecondary : SaaSTheme.bgLightSecondary,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                                ),
+                                child: widget.chatMessages.isEmpty
+                                    ? Center(
+                                        child: Text(
+                                          'Ask any question about equations, proofs, or claims in this paper.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(fontSize: 12, color: subtextColor),
+                                        ),
+                                      )
+                                    : ListView.builder(
+                                        controller: _chatScrollController,
+                                        itemCount: widget.chatMessages.length + (widget.loadingAsk ? 1 : 0),
+                                        itemBuilder: (context, index) {
+                                          if (index == widget.chatMessages.length) {
+                                            return const Padding(
+                                              padding: EdgeInsets.symmetric(vertical: 8),
+                                              child: Row(
+                                                children: [
+                                                  _TypingDots(),
+                                                  SizedBox(width: 8),
+                                                  Text('AI is thinking...', style: TextStyle(fontSize: 12, color: SaaSTheme.textMutedDark)),
+                                                ],
+                                              ),
+                                            );
+                                          }
+                                          final msg = widget.chatMessages[index];
+                                          final role = (msg['role'] ?? 'user') == 'user';
+                                          return _chatBubble(context: context, isUser: role, text: msg['content'] ?? '');
+                                        },
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Ask Question Input Bar
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: widget.questionController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Ask a question about this paper...',
+                                      hintStyle: TextStyle(fontSize: 12, color: subtextColor),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    ),
+                                    onSubmitted: (_) => widget.onAskQuestion(),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton.filled(
+                                  onPressed: widget.loadingAsk ? null : widget.onAskQuestion,
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                                    foregroundColor: const Color(0xFF041814),
+                                  ),
+                                  icon: const Icon(Icons.send_rounded, size: 18),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
         ],
+      ),
+    );
+  }
+
+  Widget _promptChip(String prompt, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ActionChip(
+        label: Text(prompt),
+        onPressed: () {
+          widget.questionController.text = prompt;
+          widget.onAskQuestion();
+        },
+        backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+        labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       ),
     );
   }

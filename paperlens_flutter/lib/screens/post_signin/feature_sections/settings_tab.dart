@@ -1,9 +1,9 @@
-import 'dart:convert';
-
+import 'package:clerk_flutter/clerk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/api_service.dart';
+import '../../landing/landing_theme.dart';
 import '../shared_widgets.dart';
 
 class SettingsTab extends StatefulWidget {
@@ -42,25 +42,7 @@ class _SettingsTabState extends State<SettingsTab> {
   final _institutionController = TextEditingController();
 
   bool _loadingSaved = false;
-  bool _signingOut = false;
-  String _status = '';
   List<Map<String, dynamic>> _savedItems = const [];
-
-  static const Map<String, String> _sectionLabels = {
-    'experiment_planner': 'Experiment Planner',
-    'problem_generator': 'Problem Generator',
-    'gap_detection': 'Gap Detection',
-    'dataset_benchmark_finder': 'Dataset & Benchmark Finder',
-    'citation_intelligence': 'Citation Intelligence',
-  };
-
-  static const List<String> _sectionOrder = [
-    'problem_generator',
-    'experiment_planner',
-    'gap_detection',
-    'dataset_benchmark_finder',
-    'citation_intelligence',
-  ];
 
   @override
   void initState() {
@@ -89,12 +71,9 @@ class _SettingsTabState extends State<SettingsTab> {
     return ApiService(baseUrl: widget.baseUrl, jwtToken: widget.getJwtToken());
   }
 
-  Future<T> _withTokenRetry<T>(
-    Future<T> Function(ApiService api) request,
-  ) async {
+  Future<T> _withTokenRetry<T>(Future<T> Function(ApiService api) request) async {
     await widget.ensureToken();
     var api = _apiWithCurrentToken();
-
     try {
       return await request(api);
     } on ApiException catch (e) {
@@ -120,340 +99,245 @@ class _SettingsTabState extends State<SettingsTab> {
     await prefs.setString(_emailKey, _emailController.text.trim());
     await prefs.setString(_institutionKey, _institutionController.text.trim());
     if (!mounted) return;
-    setState(() => _status = 'Profile saved locally on this device.');
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile saved successfully!')));
   }
 
   Future<void> _loadSavedItems() async {
-    if (widget.getJwtToken().trim().isEmpty) {
-      setState(() {
-        _savedItems = const [];
-        _status = 'Waiting for Clerk session token...';
-      });
-      return;
-    }
-
-    setState(() {
-      _loadingSaved = true;
-      _status = '';
-    });
+    if (_loadingSaved) return;
+    setState(() => _loadingSaved = true);
 
     try {
-      final data = await _withTokenRetry((api) => api.getSavedItems());
-      setState(() {
-        _savedItems = (data['items'] as List<dynamic>? ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .toList(growable: false);
-        _status = 'Loaded ${_savedItems.length} saved items.';
-      });
-    } catch (e) {
-      setState(() => _status = 'Failed to load saved items: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _loadingSaved = false);
-      }
-    }
-  }
+      final response = await _withTokenRetry((api) => api.getSavedItems());
+      final rawList = response['items'] as List<dynamic>? ?? const [];
+      final list = rawList.whereType<Map<String, dynamic>>().toList(growable: false);
 
-  Future<void> _deleteSavedItem(int id) async {
-    try {
-      await _withTokenRetry((api) => api.deleteSavedItem(id));
       if (!mounted) return;
       setState(() {
-        _savedItems = _savedItems.where((item) => item['id'] != id).toList();
-        _status = 'Saved item deleted.';
+        _savedItems = list;
+        _loadingSaved = false;
       });
-    } catch (e) {
-      setState(() => _status = 'Delete failed: $e');
+    } catch (_) {
+      if (mounted) setState(() => _loadingSaved = false);
     }
   }
 
-  Future<void> _signOut() async {
-    setState(() => _signingOut = true);
+  Future<void> _deleteSavedItem(int itemId) async {
     try {
-      await widget.onSignOut();
-    } finally {
-      if (mounted) {
-        setState(() => _signingOut = false);
-      }
+      await _withTokenRetry((api) => api.deleteSavedItem(itemId));
+      await _loadSavedItems();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted item from workspace.')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete item: $e')));
     }
-  }
-
-  void _showPayload(Map<String, dynamic> item) {
-    final payload = item['payload'] ?? const {};
-    final formatted = const JsonEncoder.withIndent('  ').convert(payload);
-
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text((item['title'] ?? 'Saved Item').toString()),
-          content: SingleChildScrollView(child: SelectableText(formatted)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  List<Map<String, dynamic>> _groupedSavedItems() {
-    return _sectionOrder
-        .map((section) {
-          final items = _savedItems
-              .where((item) => (item['section'] ?? '').toString() == section)
-              .toList(growable: false);
-          return {
-            'section': section,
-            'label': _sectionLabels[section] ?? section,
-            'items': items,
-          };
-        })
-        .where((group) => (group['items'] as List).isNotEmpty)
-        .toList(growable: false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final grouped = _groupedSavedItems();
+    final isDark = widget.isDarkMode;
+    final textColor = isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight;
+    final subtextColor = isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight;
 
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        PostSigninSectionCard(
-          title: 'Settings Studio',
-          icon: Icons.settings_rounded,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isDark
-                        ? const [Color(0xFF2B3745), Color(0xFF3D5166)]
-                        : const [Color(0xFFEFF5FF), Color(0xFFE3EDFF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark
-                        ? const Color(0xFF5A738F)
-                        : const Color(0xFFCADCF8),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Account Profile Settings Card
+          PostSigninSectionCard(
+            title: 'Researcher Profile',
+            icon: Icons.person_rounded,
+            subtitle: 'Manage your personal profile, academic institution, and Clerk authentication session.',
+            child: Column(
+              children: [
+                TextField(
+                  controller: _fullNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Full Name',
+                    hintText: 'Dr. Alex Rivera',
+                    hintStyle: TextStyle(fontSize: 12, color: subtextColor),
                   ),
                 ),
-                child: Text(
-                  'Manage your profile, appearance, account session, and saved research outputs in one place with quick controls.',
-                  textAlign: TextAlign.justify,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : const Color(0xFF304D70),
-                    height: 1.35,
-                    fontWeight: FontWeight.w500,
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _institutionController,
+                  decoration: InputDecoration(
+                    labelText: 'University / R&D Institution',
+                    hintText: 'e.g., Stanford AI Lab, MIT CSAIL',
+                    hintStyle: TextStyle(fontSize: 12, color: subtextColor),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        PostSigninSectionCard(
-          title: 'Profile',
-          icon: Icons.person_rounded,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _fullNameController,
-                decoration: InputDecoration(
-                  labelText: 'Full Name',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: isDark
-                      ? colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.3,
-                        )
-                      : Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: isDark
-                      ? colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.3,
-                        )
-                      : Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _institutionController,
-                decoration: InputDecoration(
-                  labelText: 'Institution',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: isDark
-                      ? colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.3,
-                        )
-                      : Colors.white,
-                ),
-              ),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: _saveProfile,
-                icon: const Icon(Icons.save_rounded),
-                label: const Text('Save Profile'),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        PostSigninSectionCard(
-          title: 'Appearance',
-          icon: Icons.palette_rounded,
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Dark Mode',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              Switch(
-                value: widget.isDarkMode,
-                onChanged: widget.onThemeChanged,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        PostSigninSectionCard(
-          title: 'Account',
-          icon: Icons.shield_rounded,
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: widget.onSyncToken,
-                icon: const Icon(Icons.key_rounded),
-                label: const Text('Refresh Session Token'),
-              ),
-              FilledButton.icon(
-                onPressed: _signingOut ? null : _signOut,
-                icon: const Icon(Icons.logout_rounded),
-                label: Text(_signingOut ? 'Signing out...' : 'Sign Out'),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        PostSigninSectionCard(
-          title: 'Saved Content',
-          icon: Icons.bookmarks_rounded,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: _loadingSaved ? null : _loadSavedItems,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Refresh'),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _saveProfile,
+                    icon: const Icon(Icons.save_rounded, size: 16),
+                    label: const Text('Save Profile Details'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                      foregroundColor: const Color(0xFF041814),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
-                ],
-              ),
-              if (_status.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                PostSigninInfoBox(text: _status),
+                ),
               ],
-              const SizedBox(height: 8),
-              if (_loadingSaved)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (grouped.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'No saved items yet. Save outputs in each section to view them here.',
-                  ),
-                )
-              else
-                ...grouped.map((group) {
-                  final label = (group['label'] ?? 'Other').toString();
-                  final items = (group['items'] as List<dynamic>)
-                      .whereType<Map<String, dynamic>>()
-                      .toList(growable: false);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          label,
-                          style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.primary,
-                              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Appearance & Theme Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.accentViolet, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Appearance & Theme', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  title: Text('Dark Glassmorphism Mode', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: textColor)),
+                  subtitle: Text('Deep space navy theme with glowing radial accents.', style: TextStyle(fontSize: 12, color: subtextColor)),
+                  value: isDark,
+                  onChanged: (val) => widget.onThemeChanged(val),
+                  activeTrackColor: SaaSTheme.primaryTeal,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Backend API Health & Session Sync Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.dns_rounded, color: SaaSTheme.accentCyan, size: 20),
+                    const SizedBox(width: 8),
+                    Text('API Backend & Session Sync', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text('API Endpoint: ${widget.baseUrl}', style: TextStyle(fontSize: 12, color: subtextColor, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: widget.onSyncToken,
+                        icon: const Icon(Icons.sync_rounded, size: 16),
+                        label: const Text('Refresh Session Token'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textColor,
+                          side: BorderSide(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
                         ),
-                        const SizedBox(height: 6),
-                        ...items.map((item) {
-                          final id = item['id'] as int? ?? 0;
-                          final createdAt = (item['created_at'] ?? '')
-                              .toString();
-                          return Card(
-                            elevation: 0,
-                            color: isDark
-                                ? colorScheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.35)
-                                : const Color(0xFFF8FAFA),
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                              title: Text(
-                                (item['title'] ?? 'Untitled').toString(),
-                              ),
-                              subtitle: Text(createdAt),
-                              trailing: Wrap(
-                                spacing: 4,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.visibility_rounded),
-                                    onPressed: () => _showPayload(item),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline_rounded,
-                                    ),
-                                    onPressed: () => _deleteSavedItem(id),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        try {
+                          ClerkAuth.of(context, listen: false).signOut();
+                        } catch (_) {}
+                      },
+                      icon: const Icon(Icons.logout_rounded, size: 16),
+                      label: const Text('Sign Out'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent.withValues(alpha: 0.15),
+                        foregroundColor: Colors.redAccent,
+                        elevation: 0,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Saved Research Workspace Manager
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.folder_special_rounded, color: SaaSTheme.accentAmber, size: 20),
+                        const SizedBox(width: 8),
+                        Text('Saved Workspace Items (${_savedItems.length})', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor)),
                       ],
                     ),
-                  );
-                }),
-            ],
+                    IconButton(
+                      onPressed: _loadSavedItems,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      tooltip: 'Refresh Saved Items',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                if (_loadingSaved)
+                  const Center(child: CircularProgressIndicator())
+                else if (_savedItems.isEmpty)
+                  Text('No saved items found in your cloud workspace.', style: TextStyle(fontSize: 12, color: subtextColor))
+                else
+                  ..._savedItems.map((item) {
+                    final id = (item['id'] as num?)?.toInt() ?? 0;
+                    final title = (item['title'] ?? 'Saved Item').toString();
+                    final section = (item['section'] ?? '').toString().toUpperCase();
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? SaaSTheme.bgDarkSecondary : SaaSTheme.bgLightSecondary,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: textColor)),
+                                Text(section, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: SaaSTheme.primaryTeal)),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: id > 0 ? () => _deleteSavedItem(id) : null,
+                            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
+                            tooltip: 'Delete Item',
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

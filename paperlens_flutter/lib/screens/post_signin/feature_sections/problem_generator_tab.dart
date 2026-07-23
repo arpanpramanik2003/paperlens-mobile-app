@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../../services/api_service.dart';
+import '../../landing/landing_theme.dart';
 import '../shared_widgets.dart';
 
 class ProblemGeneratorTab extends StatefulWidget {
@@ -22,8 +23,8 @@ class ProblemGeneratorTab extends StatefulWidget {
 }
 
 class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
-  final _domainController = TextEditingController();
-  final _subdomainController = TextEditingController();
+  final _domainController = TextEditingController(text: 'Artificial Intelligence');
+  final _subdomainController = TextEditingController(text: 'LLM Reasoning & Alignment');
 
   String _complexity = 'medium';
   bool _loading = false;
@@ -33,6 +34,13 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
   List<Map<String, dynamic>> _ideas = const [];
   int? _expandedIndex;
   final Map<int, Map<String, dynamic>> _ideaDetails = {};
+
+  static const _presetDomains = [
+    ('LLM Reasoning', 'Artificial Intelligence', 'LLM Reasoning & Chain of Thought'),
+    ('Computer Vision', 'Computer Vision', 'Multimodal Diffusion & Video Generation'),
+    ('Robotics', 'Robotics', 'Embodied AI & Manipulation'),
+    ('Bioinformatics', 'Bioinformatics', 'Protein Folding & Drug Discovery'),
+  ];
 
   @override
   void dispose() {
@@ -47,17 +55,12 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<T> _withTokenRetry<T>(
-    Future<T> Function(ApiService api) request,
-  ) async {
+  Future<T> _withTokenRetry<T>(Future<T> Function(ApiService api) request) async {
     await widget.ensureToken();
     var api = _apiWithCurrentToken();
-
     try {
       return await request(api);
     } on ApiException catch (e) {
@@ -76,7 +79,7 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
 
     setState(() {
       _loading = true;
-      _status = '';
+      _status = 'AI is formulating novel research proposals...';
       _ideas = const [];
       _expandedIndex = null;
       _ideaDetails.clear();
@@ -98,15 +101,13 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
       setState(() {
         _ideas = ideas;
         _status = ideas.isEmpty
-            ? 'No ideas returned.'
-            : 'Generated ${ideas.length} ideas.';
+            ? 'No research proposals returned.'
+            : 'Generated ${ideas.length} novel research proposals!';
       });
     } catch (e) {
       setState(() => _status = 'Generation failed: $e');
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -124,11 +125,11 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
     final idea = _ideas[index];
     setState(() {
       _expandingIndex = index;
-      _status = '';
+      _status = 'Expanding methodology & evaluation plan...';
     });
 
     try {
-      final data = await _withTokenRetry(
+      final response = await _withTokenRetry(
         (api) => api.expandProblem(
           domain: _domainController.text.trim(),
           subdomain: _subdomainController.text.trim(),
@@ -137,573 +138,306 @@ class _ProblemGeneratorTabState extends State<ProblemGeneratorTab> {
         ),
       );
 
+      final expanded = (response['expanded_idea'] as Map<String, dynamic>?) ??
+          (response['expanded'] as Map<String, dynamic>?) ??
+          response;
+
+      if (!mounted) return;
       setState(() {
-        _ideaDetails[index] = {
-          'title': (data['title'] ?? idea['title'] ?? 'Untitled idea')
-              .toString(),
-          'problem_statement': (data['problem_statement'] ?? idea['desc'] ?? '')
-              .toString(),
-          'objective': (data['objective'] ?? '').toString(),
-          'step_by_step': (data['step_by_step'] as List<dynamic>? ?? const []),
-          'datasets': (data['datasets'] as List<dynamic>? ?? const []),
-          'evaluation_metrics':
-              (data['evaluation_metrics'] as List<dynamic>? ?? const []),
-          'expected_outcomes':
-              (data['expected_outcomes'] as List<dynamic>? ?? const []),
-        };
+        _ideaDetails[index] = expanded;
         _expandedIndex = index;
+        _status = 'Expanded proposal brief for idea #${index + 1}.';
       });
     } catch (e) {
-      setState(() => _status = 'Could not load details: $e');
+      _showSnack('Failed to expand proposal: $e');
     } finally {
-      if (mounted) {
-        setState(() => _expandingIndex = null);
-      }
+      if (mounted) setState(() => _expandingIndex = null);
     }
   }
 
-  Future<void> _saveBrief(int index) async {
-    var details = _ideaDetails[index];
+  Future<void> _saveIdea(Map<String, dynamic> idea, int index) async {
+    if (_saving) return;
+    final title = (idea['title'] ?? idea['name'] ?? 'Research Proposal').toString();
+    final summary = (idea['summary'] ?? idea['problem_statement'] ?? '').toString();
+    final fullPayload = Map<String, dynamic>.from(idea);
+    if (_ideaDetails[index] != null) {
+      fullPayload['expanded_details'] = _ideaDetails[index];
+    }
 
-    final idea = _ideas[index];
-    setState(() {
-      _saving = true;
-      _status = '';
-    });
-
+    setState(() => _saving = true);
     try {
-      await widget.ensureToken();
-      final token = widget.getJwtToken().trim();
-      if (token.isEmpty) {
-        setState(() => _status = 'Add JWT token in Setup to save items.');
-        _showSnack('Could not save: missing session token.');
-        return;
-      }
-
-      if (details == null) {
-        final data = await _withTokenRetry(
-          (api) => api.expandProblem(
-            domain: _domainController.text.trim(),
-            subdomain: _subdomainController.text.trim(),
-            complexity: _complexity,
-            idea: idea,
-          ),
-        );
-
-        details = {
-          'title': (data['title'] ?? idea['title'] ?? 'Untitled idea')
-              .toString(),
-          'problem_statement': (data['problem_statement'] ?? idea['desc'] ?? '')
-              .toString(),
-          'objective': (data['objective'] ?? '').toString(),
-          'step_by_step': (data['step_by_step'] as List<dynamic>? ?? const []),
-          'datasets': (data['datasets'] as List<dynamic>? ?? const []),
-          'evaluation_metrics':
-              (data['evaluation_metrics'] as List<dynamic>? ?? const []),
-          'expected_outcomes':
-              (data['expected_outcomes'] as List<dynamic>? ?? const []),
-        };
-
-        if (mounted) {
-          setState(() {
-            _ideaDetails[index] = details!;
-            _expandedIndex = index;
-          });
-        }
-      }
-
-      final detailsForSave = details;
-
-      await _withTokenRetry(
-        (api) => api.createSavedItem(
-          section: 'problem_generator',
-          title: (detailsForSave['title'] ?? 'Problem Brief').toString(),
-          summary: (detailsForSave['problem_statement'] ?? '').toString(),
-          payload: {
-            'domain': _domainController.text.trim(),
-            'subdomain': _subdomainController.text.trim(),
-            'complexity': _complexity,
-            'idea': idea,
-            'brief': detailsForSave,
-          },
-        ),
-      );
-      setState(() => _status = 'Problem brief saved.');
-      _showSnack('Idea saved successfully.');
+      await _withTokenRetry((api) => api.createSavedItem(
+            section: 'problem',
+            title: title,
+            summary: summary.length > 140 ? '${summary.substring(0, 140)}...' : summary,
+            payload: fullPayload,
+          ));
+      _showSnack('Saved "$title" to your Research Workspace!');
     } catch (e) {
-      setState(() => _status = 'Save failed: $e');
-      _showSnack('Save failed. Please try again.');
+      _showSnack('Failed to save proposal: $e');
     } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
+      if (mounted) setState(() => _saving = false);
     }
-  }
-
-  List<String> _toStringList(dynamic value) {
-    if (value is! List) return const [];
-    return value.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
-  }
-
-  Widget _detailSection(
-    BuildContext context, {
-    required String title,
-    required Widget child,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: isDark
-            ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.45)
-            : const Color(0xFFF7FAFA),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isDark
-              ? colorScheme.outline.withValues(alpha: 0.4)
-              : const Color(0xFFE2ECEB),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          child,
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight;
+    final subtextColor = isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight;
 
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        PostSigninSectionCard(
-          title: 'Idea Lab Pro',
-          icon: Icons.lightbulb_rounded,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isDark
-                        ? const [Color(0xFF193A45), Color(0xFF22586A)]
-                        : const [Color(0xFFE8F7FD), Color(0xFFD7EDF8)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark
-                        ? const Color(0xFF35667A)
-                        : const Color(0xFFB9DFF1),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PostSigninSectionCard(
+            title: 'Problem Generator & Hypothesis Creator',
+            subtitle: 'AI-formulated novel research directions, problem statements, and testable hypotheses.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Preset Domain Chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _presetDomains.map((preset) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ActionChip(
+                          label: Text(preset.$1),
+                          onPressed: () {
+                            setState(() {
+                              _domainController.text = preset.$2;
+                              _subdomainController.text = preset.$3;
+                            });
+                          },
+                          backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+                          labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 14),
+
+                TextField(
+                  controller: _domainController,
+                  decoration: InputDecoration(
+                    labelText: 'Research Domain',
+                    hintText: 'e.g., Computer Vision, Natural Language Processing',
+                    hintStyle: TextStyle(fontSize: 12, color: subtextColor),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                TextField(
+                  controller: _subdomainController,
+                  decoration: InputDecoration(
+                    labelText: 'Subdomain / Topic Focus',
+                    hintText: 'e.g., Self-Supervised Vision Transformers, Diffusion Models',
+                    hintStyle: TextStyle(fontSize: 12, color: subtextColor),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                Text(
+                  'Innovation Complexity Level',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textColor),
+                ),
+                const SizedBox(height: 8),
+                Row(
                   children: [
-                    Text(
-                      'Generate High-Quality Research Ideas',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : const Color(0xFF153D4C),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Define your domain and complexity, then explore strong problem candidates with structured expansion into objective, roadmap, datasets, and measurable outcomes.',
-                      style: TextStyle(
-                        height: 1.35,
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.85)
-                            : const Color(0xFF325A68),
-                      ),
-                      textAlign: TextAlign.justify,
-                    ),
+                    _complexityChip('low', 'Incremental', isDark),
+                    const SizedBox(width: 6),
+                    _complexityChip('medium', 'Moderate', isDark),
+                    const SizedBox(width: 6),
+                    _complexityChip('high', 'High Impact', isDark),
+                    const SizedBox(width: 6),
+                    _complexityChip('breakthrough', 'Paradigm Shift', isDark),
                   ],
                 ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _domainController,
-                decoration: InputDecoration(
-                  labelText: 'Domain',
-                  hintText: 'e.g. NLP, CV, Healthcare AI',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: isDark
-                      ? colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.3,
-                        )
-                      : Colors.white,
+                const SizedBox(height: 16),
+
+                if (_status.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(_status, style: TextStyle(fontSize: 12, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark, fontWeight: FontWeight.w600)),
+                  ),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _loading ? null : _generateIdeas,
+                    icon: _loading
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF041814)))
+                        : const Icon(Icons.auto_awesome_rounded, size: 18),
+                    label: Text(
+                      _loading ? 'Generating Novel Proposals...' : 'Generate Research Proposals',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                      foregroundColor: const Color(0xFF041814),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _subdomainController,
-                decoration: InputDecoration(
-                  labelText: 'Subdomain',
-                  hintText: 'e.g. Text Summarization',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: isDark
-                      ? colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.3,
-                        )
-                      : Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _complexity,
-                decoration: InputDecoration(
-                  labelText: 'Complexity',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: isDark
-                      ? colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.3,
-                        )
-                      : Colors.white,
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'low', child: Text('Low')),
-                  DropdownMenuItem(value: 'medium', child: Text('Medium')),
-                  DropdownMenuItem(value: 'high', child: Text('High')),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _complexity = value);
-                  }
-                },
-              ),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: _loading ? null : _generateIdeas,
-                icon: _loading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2.2),
-                      )
-                    : const Icon(Icons.auto_awesome_rounded),
-                label: Text(_loading ? 'Generating...' : 'Generate Ideas'),
-              ),
-              if (_status.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                PostSigninInfoBox(text: _status),
               ],
-            ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Generated Proposals
+          if (_ideas.isNotEmpty) ...[
+            Text(
+              'Novel Research Proposals (${_ideas.length})',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor),
+            ),
+            const SizedBox(height: 12),
+            ...List.generate(_ideas.length, (index) {
+              final idea = _ideas[index];
+              return _proposalCard(idea, index, isDark, textColor, subtextColor);
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _complexityChip(String key, String label, bool isDark) {
+    final isSelected = _complexity == key;
+    final activeColor = isDark ? SaaSTheme.accentViolet : SaaSTheme.primaryTealDark;
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _complexity = key),
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? activeColor.withValues(alpha: 0.15) : (isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isSelected ? activeColor : (isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight)),
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500, color: isSelected ? activeColor : (isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight)),
+            ),
           ),
         ),
-        const SizedBox(height: 12),
-        if (_ideas.isEmpty)
-          const PostSigninInfoBox(
-            text: 'Generate ideas to see research problems here.',
-          )
-        else ...[
-          Text(
-            'Generated Ideas',
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 8),
-          ..._ideas.asMap().entries.map((entry) {
-            final idea = entry.value;
-            final tags = (idea['tags'] as List<dynamic>? ?? const [])
-                .map((e) => e.toString())
-                .toList();
-            final rating = (idea['rating'] ?? 3).toString();
+      ),
+    );
+  }
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            (idea['title'] ?? 'Untitled idea').toString(),
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            'Rating $rating',
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      (idea['desc'] ?? '').toString(),
-                      textAlign: TextAlign.justify,
-                      style: TextStyle(
-                        color: colorScheme.onSurface.withValues(alpha: 0.9),
-                        height: 1.38,
-                      ),
-                    ),
-                    if (tags.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: tags
-                            .map(
-                              (tag) => Chip(
-                                label: Text(tag),
-                                visualDensity: VisualDensity.compact,
-                                side: BorderSide.none,
-                                backgroundColor: isDark
-                                    ? colorScheme.surfaceContainerHighest
-                                          .withValues(alpha: 0.45)
-                                    : const Color(0xFFF0F5F5),
-                              ),
-                            )
-                            .toList(growable: false),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: _expandingIndex == entry.key
-                              ? null
-                              : () => _toggleIdeaDetails(entry.key),
-                          icon: const Icon(Icons.arrow_outward_rounded),
-                          label: Text(
-                            _expandingIndex == entry.key
-                                ? 'Loading details...'
-                                : _expandedIndex == entry.key
-                                ? 'Hide details'
-                                : 'Use this idea',
-                          ),
-                        ),
-                        FilledButton.icon(
-                          onPressed: _saving
-                              ? null
-                              : () => _saveBrief(entry.key),
-                          icon: const Icon(Icons.bookmark_add_rounded),
-                          label: Text(_saving ? 'Saving...' : 'Save brief'),
-                        ),
-                      ],
-                    ),
-                    if (_expandedIndex == entry.key &&
-                        _ideaDetails[entry.key] != null) ...[
-                      const SizedBox(height: 10),
-                      Builder(
-                        builder: (context) {
-                          final details = _ideaDetails[entry.key]!;
-                          final steps =
-                              (details['step_by_step'] as List<dynamic>? ??
-                                      const [])
-                                  .whereType<Map<String, dynamic>>()
-                                  .toList(growable: false);
-                          final datasets = _toStringList(details['datasets']);
-                          final metrics = _toStringList(
-                            details['evaluation_metrics'],
-                          );
-                          final outcomes = _toStringList(
-                            details['expected_outcomes'],
-                          );
+  Widget _proposalCard(Map<String, dynamic> idea, int index, bool isDark, Color textColor, Color subtextColor) {
+    final title = (idea['title'] ?? idea['name'] ?? 'Proposal #${index + 1}').toString();
+    final summary = (idea['summary'] ?? idea['problem_statement'] ?? idea['description'] ?? '').toString();
+    final hypothesis = (idea['hypothesis'] ?? idea['core_hypothesis'] ?? '').toString();
+    final isExpanded = _expandedIndex == index;
+    final isExpanding = _expandingIndex == index;
+    final details = _ideaDetails[index];
 
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _detailSection(
-                                context,
-                                title: 'Problem Statement',
-                                child: Text(
-                                  (details['problem_statement'] ?? '')
-                                      .toString(),
-                                  textAlign: TextAlign.justify,
-                                  style: const TextStyle(height: 1.36),
-                                ),
-                              ),
-                              _detailSection(
-                                context,
-                                title: 'Primary Objective',
-                                child: Text(
-                                  (details['objective'] ?? '').toString(),
-                                  textAlign: TextAlign.justify,
-                                  style: const TextStyle(height: 1.36),
-                                ),
-                              ),
-                              _detailSection(
-                                context,
-                                title: 'Execution Roadmap',
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: steps.isEmpty
-                                      ? const [Text('No steps returned.')]
-                                      : steps
-                                            .asMap()
-                                            .entries
-                                            .map((stepEntry) {
-                                              final step = stepEntry.value;
-                                              final num =
-                                                  (step['step'] ??
-                                                          stepEntry.key + 1)
-                                                      .toString();
-                                              final stepTitle =
-                                                  (step['title'] ?? 'Step')
-                                                      .toString();
-                                              final stepDetails =
-                                                  (step['details'] ?? '')
-                                                      .toString();
-                                              return Padding(
-                                                padding: const EdgeInsets.only(
-                                                  bottom: 8,
-                                                ),
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      '$num. $stepTitle',
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 2),
-                                                    Text(
-                                                      stepDetails,
-                                                      textAlign:
-                                                          TextAlign.justify,
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            })
-                                            .toList(growable: false),
-                                ),
-                              ),
-                              _detailSection(
-                                context,
-                                title: 'Datasets and Tools',
-                                child: datasets.isEmpty
-                                    ? const Text('Not provided')
-                                    : Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: datasets
-                                            .map(
-                                              (item) => Chip(
-                                                label: Text(item),
-                                                side: BorderSide.none,
-                                                backgroundColor: isDark
-                                                    ? const Color(0xFF18474A)
-                                                    : const Color(0xFFEAF3F2),
-                                              ),
-                                            )
-                                            .toList(growable: false),
-                                      ),
-                              ),
-                              _detailSection(
-                                context,
-                                title: 'Evaluation Metrics',
-                                child: metrics.isEmpty
-                                    ? const Text('Not provided')
-                                    : Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: metrics
-                                            .map(
-                                              (item) => Chip(
-                                                label: Text(item),
-                                                side: BorderSide.none,
-                                                backgroundColor: isDark
-                                                    ? const Color(0xFF3A3457)
-                                                    : const Color(0xFFF0EEF9),
-                                              ),
-                                            )
-                                            .toList(growable: false),
-                                      ),
-                              ),
-                              _detailSection(
-                                context,
-                                title: 'Expected Outcomes',
-                                child: outcomes.isEmpty
-                                    ? const Text('Not provided')
-                                    : Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: outcomes
-                                            .map(
-                                              (item) => Padding(
-                                                padding: const EdgeInsets.only(
-                                                  bottom: 4,
-                                                ),
-                                                child: Row(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    const Text('• '),
-                                                    Expanded(
-                                                      child: Text(
-                                                        item,
-                                                        textAlign:
-                                                            TextAlign.justify,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            )
-                                            .toList(growable: false),
-                                      ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                  ],
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(18),
+      decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: SaaSTheme.accentMagenta.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.lightbulb_rounded, color: SaaSTheme.accentMagenta, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor),
                 ),
               ),
-            );
-          }),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(summary, style: TextStyle(fontSize: 13, height: 1.45, color: subtextColor)),
+
+          if (hypothesis.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? SaaSTheme.bgDarkSecondary : SaaSTheme.bgLightSecondary,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.science_rounded, size: 14, color: SaaSTheme.primaryTeal),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Hypothesis: $hypothesis',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (isExpanded && details != null) ...[
+            const SizedBox(height: 14),
+            Divider(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight, height: 1),
+            const SizedBox(height: 14),
+            Text('Expanded Methodology Brief', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textColor)),
+            const SizedBox(height: 6),
+            Text(
+              (details['methodology'] ?? details['details'] ?? details['expanded'] ?? 'Detailed plan generated.').toString(),
+              style: TextStyle(fontSize: 12, height: 1.5, color: subtextColor),
+            ),
+          ],
+
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton.icon(
+                onPressed: isExpanding ? null : () => _toggleIdeaDetails(index),
+                icon: isExpanding
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Icon(isExpanded ? Icons.expand_less_rounded : Icons.read_more_rounded, size: 14),
+                label: Text(isExpanded ? 'Collapse' : 'Expand Brief'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: textColor,
+                  side: BorderSide(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () => _saveIdea(idea, index),
+                icon: const Icon(Icons.bookmark_border_rounded, size: 14),
+                label: const Text('Save Idea'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+                  foregroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                  elevation: 0,
+                ),
+              ),
+            ],
+          ),
         ],
-      ],
-    );
+      ),
+    ).animate().fadeIn(delay: (index * 60).ms, duration: 400.ms);
   }
 }

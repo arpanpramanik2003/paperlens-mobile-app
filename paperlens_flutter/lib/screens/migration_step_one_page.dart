@@ -5,11 +5,13 @@ import 'dart:io';
 import 'package:clerk_flutter/clerk_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
 import 'post_signin/feature_sections/analyzer_section.dart';
 import 'post_signin/app_header.dart';
+import 'post_signin/app_sidebar.dart';
 import 'post_signin/feature_sections/citation_intelligence_tab.dart';
 import 'post_signin/feature_sections/dashboard_section.dart';
 import 'post_signin/feature_sections/dataset_benchmark_tab.dart';
@@ -34,8 +36,16 @@ class MigrationStepOnePage extends StatefulWidget {
 
 class _MigrationStepOnePageState extends State<MigrationStepOnePage>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  static const _productionBaseUrl = 'https://paperlens-ai.onrender.com';
+  static const _productionBaseUrl = 'https://paperlens-ai-phn3.onrender.com';
   static const _chatThreadsCacheKey = 'paperlens.chat_threads_by_doc.v1';
+
+  String get _baseUrl {
+    try {
+      final envUrl = dotenv.maybeGet('API_BASE_URL')?.trim() ?? '';
+      if (envUrl.isNotEmpty) return envUrl;
+    } catch (_) {}
+    return _productionBaseUrl;
+  }
 
   final _topicController = TextEditingController();
   final _questionController = TextEditingController();
@@ -186,7 +196,7 @@ class _MigrationStepOnePageState extends State<MigrationStepOnePage>
   }
 
   ApiService _api() {
-    return ApiService(baseUrl: _productionBaseUrl, jwtToken: _jwtToken);
+    return ApiService(baseUrl: _baseUrl, jwtToken: _jwtToken);
   }
 
   String _currentJwtToken() => _jwtToken;
@@ -484,113 +494,154 @@ class _MigrationStepOnePageState extends State<MigrationStepOnePage>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = widget.isDarkMode;
+
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            PostSigninHeader(
-              sectionIndex: _activeSectionIndex,
-              onRefreshToken: _syncClerkToken,
-            ),
-            TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: const [
-                Tab(icon: Icon(Icons.dashboard_rounded), text: 'Dashboard'),
-                Tab(icon: Icon(Icons.description_rounded), text: 'Analyzer'),
-                Tab(icon: Icon(Icons.science_rounded), text: 'Planner'),
-                Tab(icon: Icon(Icons.lightbulb_rounded), text: 'Ideas'),
-                Tab(icon: Icon(Icons.search_rounded), text: 'Gaps'),
-                Tab(icon: Icon(Icons.dataset_rounded), text: 'Datasets'),
-                Tab(icon: Icon(Icons.auto_graph_rounded), text: 'Citations'),
-                Tab(icon: Icon(Icons.settings_rounded), text: 'Settings'),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 768;
+
+            Widget buildMainContent() {
+              return Column(
                 children: [
-                  _scrollWrap(
-                    PostSigninDashboardSection(
-                      dashboard: _dashboard,
-                      loadingDashboard: _loadingDashboard,
-                      onLoadDashboard: _loadDashboard,
+                  PostSigninHeader(
+                    sectionIndex: _activeSectionIndex,
+                    onRefreshToken: _syncClerkToken,
+                    isDarkMode: isDark,
+                    onToggleTheme: () => widget.onThemeChanged(!isDark),
+                  ),
+                  if (!isWide)
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0F1E1B) : const Color(0xFFE8F0EE),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF1B3833) : const Color(0xFFD4E2DF),
+                        ),
+                      ),
+                      child: TabBar(
+                        controller: _tabController,
+                        isScrollable: true,
+                        tabAlignment: TabAlignment.start,
+                        dividerColor: Colors.transparent,
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        padding: const EdgeInsets.all(4),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+                        indicator: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: LinearGradient(
+                            colors: isDark
+                                ? [const Color(0xFF00E6C3), const Color(0xFF00BFA5)]
+                                : [const Color(0xFF006A60), const Color(0xFF0E5D52)],
+                          ),
+                        ),
+                        labelColor: Colors.white,
+                        unselectedLabelColor: isDark ? const Color(0xFFA3C2BE) : const Color(0xFF4B6560),
+                        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                        tabs: const [
+                          Tab(icon: Icon(Icons.dashboard_rounded, size: 18), text: 'Dashboard'),
+                          Tab(icon: Icon(Icons.description_rounded, size: 18), text: 'Analyzer'),
+                          Tab(icon: Icon(Icons.auto_graph_rounded, size: 18), text: 'Citations'),
+                          Tab(icon: Icon(Icons.search_rounded, size: 18), text: 'Gaps'),
+                          Tab(icon: Icon(Icons.lightbulb_rounded, size: 18), text: 'Ideas'),
+                          Tab(icon: Icon(Icons.dataset_rounded, size: 18), text: 'Datasets'),
+                          Tab(icon: Icon(Icons.science_rounded, size: 18), text: 'Planner'),
+                          Tab(icon: Icon(Icons.settings_rounded, size: 18), text: 'Settings'),
+                        ],
+                      ),
                     ),
-                  ),
-                  _scrollWrap(
-                    PostSigninAnalyzerSection(
-                      loadingAnalyze: _loadingAnalyze,
-                      onAnalyzePaper: _analyzePaper,
-                      docId: _docId,
-                      analysisText: _analysisText,
-                      questionController: _questionController,
-                      loadingAsk: _loadingAsk,
-                      onAskQuestion: _askQuestion,
-                      chatMessages: _chatMessages,
+                  const SizedBox(height: 4),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        PostSigninDashboardSection(
+                          dashboard: _dashboard,
+                          loadingDashboard: _loadingDashboard,
+                          onLoadDashboard: _loadDashboard,
+                          onTabChanged: (index) => _tabController.animateTo(index),
+                        ),
+                        PostSigninAnalyzerSection(
+                          loadingAnalyze: _loadingAnalyze,
+                          onAnalyzePaper: _analyzePaper,
+                          docId: _docId,
+                          analysisText: _analysisText,
+                          questionController: _questionController,
+                          loadingAsk: _loadingAsk,
+                          onAskQuestion: _askQuestion,
+                          chatMessages: _chatMessages,
+                        ),
+                        CitationIntelligenceTab(
+                          baseUrl: _baseUrl,
+                          jwtToken: _jwtToken,
+                          getJwtToken: _currentJwtToken,
+                          ensureToken: _ensureTokenForTabs,
+                        ),
+                        GapDetectionTab(
+                          baseUrl: _baseUrl,
+                          jwtToken: _jwtToken,
+                          getJwtToken: _currentJwtToken,
+                          ensureToken: _ensureTokenForTabs,
+                        ),
+                        ProblemGeneratorTab(
+                          baseUrl: _baseUrl,
+                          jwtToken: _jwtToken,
+                          getJwtToken: _currentJwtToken,
+                          ensureToken: _ensureTokenForTabs,
+                        ),
+                        DatasetBenchmarkTab(
+                          baseUrl: _baseUrl,
+                          jwtToken: _jwtToken,
+                          getJwtToken: _currentJwtToken,
+                          ensureToken: _ensureTokenForTabs,
+                        ),
+                        PostSigninPlannerSection(
+                          topicController: _topicController,
+                          difficulty: _difficulty,
+                          onDifficultyChanged: (value) => setState(() => _difficulty = value),
+                          loadingPlanner: _loadingPlanner,
+                          onPlanExperiment: _planExperiment,
+                          onSavePlan: _savePlan,
+                          planSteps: _planSteps,
+                        ),
+                        SettingsTab(
+                          baseUrl: _baseUrl,
+                          jwtToken: _jwtToken,
+                          getJwtToken: _currentJwtToken,
+                          ensureToken: _ensureTokenForTabs,
+                          isDarkMode: widget.isDarkMode,
+                          onThemeChanged: widget.onThemeChanged,
+                          onSignOut: _signOut,
+                          onSyncToken: _syncClerkToken,
+                        ),
+                      ],
                     ),
-                  ),
-                  _scrollWrap(
-                    PostSigninPlannerSection(
-                      topicController: _topicController,
-                      difficulty: _difficulty,
-                      onDifficultyChanged: (value) {
-                        setState(() => _difficulty = value);
-                      },
-                      loadingPlanner: _loadingPlanner,
-                      onPlanExperiment: _planExperiment,
-                      onSavePlan: _savePlan,
-                      planSteps: _planSteps,
-                    ),
-                  ),
-                  ProblemGeneratorTab(
-                    baseUrl: _productionBaseUrl,
-                    jwtToken: _jwtToken,
-                    getJwtToken: _currentJwtToken,
-                    ensureToken: _ensureTokenForTabs,
-                  ),
-                  GapDetectionTab(
-                    baseUrl: _productionBaseUrl,
-                    jwtToken: _jwtToken,
-                    getJwtToken: _currentJwtToken,
-                    ensureToken: _ensureTokenForTabs,
-                  ),
-                  DatasetBenchmarkTab(
-                    baseUrl: _productionBaseUrl,
-                    jwtToken: _jwtToken,
-                    getJwtToken: _currentJwtToken,
-                    ensureToken: _ensureTokenForTabs,
-                  ),
-                  CitationIntelligenceTab(
-                    baseUrl: _productionBaseUrl,
-                    jwtToken: _jwtToken,
-                    getJwtToken: _currentJwtToken,
-                    ensureToken: _ensureTokenForTabs,
-                  ),
-                  SettingsTab(
-                    baseUrl: _productionBaseUrl,
-                    jwtToken: _jwtToken,
-                    getJwtToken: _currentJwtToken,
-                    ensureToken: _ensureTokenForTabs,
-                    isDarkMode: widget.isDarkMode,
-                    onThemeChanged: widget.onThemeChanged,
-                    onSignOut: _signOut,
-                    onSyncToken: _syncClerkToken,
                   ),
                 ],
-              ),
-            ),
-          ],
+              );
+            }
+
+            if (isWide) {
+              return Row(
+                children: [
+                  AppSidebar(
+                    selectedIndex: _activeSectionIndex,
+                    onSelectSection: (index) => _tabController.animateTo(index),
+                    isDarkMode: isDark,
+                    onToggleTheme: () => widget.onThemeChanged(!isDark),
+                  ),
+                  Expanded(child: buildMainContent()),
+                ],
+              );
+            }
+
+            return buildMainContent();
+          },
         ),
       ),
-    );
-  }
-
-  Widget _scrollWrap(Widget child) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      children: [child],
     );
   }
 }
