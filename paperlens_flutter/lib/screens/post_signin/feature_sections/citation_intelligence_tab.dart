@@ -3,9 +3,11 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/api_service.dart';
+import '../../landing/landing_theme.dart';
 import '../shared_widgets.dart';
 
 class CitationIntelligenceTab extends StatefulWidget {
@@ -23,14 +25,13 @@ class CitationIntelligenceTab extends StatefulWidget {
   final Future<void> Function({bool force}) ensureToken;
 
   @override
-  State<CitationIntelligenceTab> createState() =>
-      _CitationIntelligenceTabState();
+  State<CitationIntelligenceTab> createState() => _CitationIntelligenceTabState();
 }
 
 class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
-  String _mode = 'upload';
-  String _sortOrder = 'newest';
-  String _topicPreset = 'auto';
+  String _mode = 'upload'; // 'upload' or 'discover'
+  String _sortOrder = 'highest'; // 'highest', 'newest', 'oldest', 'lowest'
+  String _topicPreset = 'auto'; // 'auto', 'plant_pathology', 'medical_imaging', etc.
   bool _loading = false;
   bool _saving = false;
   String _status = '';
@@ -45,10 +46,13 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
   int _loadingStepIndex = 0;
   Timer? _loadingStepTimer;
 
-  bool _expandTopCited = true;
-  bool _expandYearwise = false;
-  bool _expandUnmatched = false;
-  bool _expandGuidance = true;
+  static const _topicPresets = [
+    ('auto', 'Auto Detect', 'Infer best domain preset'),
+    ('plant_pathology', 'Plant Pathology', 'Crop disease & agricultural vision'),
+    ('medical_imaging', 'Medical Imaging', 'Radiology, MRI, CT & ultrasound'),
+    ('medical_diagnosis', 'Medical Diagnosis', 'Clinical decision support'),
+    ('remote_sensing', 'Remote Sensing', 'Satellite & earth observation'),
+  ];
 
   @override
   void dispose() {
@@ -61,17 +65,17 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
   List<String> _processStepsForMode() {
     if (_mode == 'discover') {
       return const [
-        'Understanding project domain',
-        'Searching related papers',
-        'Ranking by recency and citations',
-        'Preparing AI reading recommendations',
+        'Analyzing project domain intent...',
+        'Querying Semantic Scholar repositories...',
+        'Ranking papers by impact and citation count...',
+        'Formulating AI reading roadmap & coverage gaps...',
       ];
     }
     return const [
-      'Uploading document',
-      'Extracting references',
-      'Matching with Semantic Scholar',
-      'Ranking evidence by impact',
+      'Uploading paper document...',
+      'Extracting bibliography references section...',
+      'Matching entries with Semantic Scholar API...',
+      'Calculating citation impact & network influence...',
     ];
   }
 
@@ -93,99 +97,11 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
     _loadingStepIndex = 0;
   }
 
-  String _friendlyError(Object e, String fallback) {
-    if (e is ApiException) {
-      return e.message.isEmpty ? fallback : e.message;
-    }
-    final text = e.toString().trim();
-    return text.isEmpty ? fallback : text;
-  }
-
-  Widget _expandableBlock({
-    required BuildContext context,
-    required String title,
-    required bool expanded,
-    required VoidCallback onToggle,
-    required Widget child,
-    String? trailing,
-  }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            InkWell(
-              onTap: onToggle,
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    if (trailing != null) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          trailing,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                    ],
-                    Icon(
-                      expanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            AnimatedCrossFade(
-              firstChild: const SizedBox.shrink(),
-              secondChild: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: child,
-              ),
-              crossFadeState: expanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 220),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   ApiService _apiWithCurrentToken() {
     return ApiService(baseUrl: widget.baseUrl, jwtToken: widget.getJwtToken());
   }
 
-  Future<T> _withTokenRetry<T>(
-    Future<T> Function(ApiService api) request,
-  ) async {
+  Future<T> _withTokenRetry<T>(Future<T> Function(ApiService api) request) async {
     await widget.ensureToken();
     var api = _apiWithCurrentToken();
 
@@ -224,84 +140,22 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
       allowedExtensions: const ['pdf', 'docx'],
       withData: false,
     );
-    if (result == null || result.files.single.path == null) {
-      return;
-    }
+    if (result == null || result.files.single.path == null) return;
 
     setState(() {
       _filePath = result.files.single.path;
-      _status = 'Picked ${result.files.single.name}';
+      _status = 'Selected file: ${result.files.single.name}';
     });
   }
 
   String _buildPaperContext(Map<String, dynamic> report) {
     final topCited = (report['top_cited'] as List<dynamic>? ?? const [])
         .take(8)
-        .map(
-          (entry) => (entry as Map<String, dynamic>)['title']?.toString() ?? '',
-        )
+        .map((entry) => (entry as Map<String, dynamic>)['title']?.toString() ?? '')
         .where((title) => title.isNotEmpty)
         .join('; ');
 
     return 'Top cited references: $topCited';
-  }
-
-  List<Map<String, dynamic>> _allReferences() {
-    return (_report?['references'] as List<dynamic>? ?? const [])
-        .whereType<Map<String, dynamic>>()
-        .toList(growable: false);
-  }
-
-  List<Map<String, dynamic>> _missingReferences() {
-    return _allReferences()
-        .where((entry) => (entry['matched'] ?? false) != true)
-        .toList(growable: false);
-  }
-
-  List<Map<String, int>> _yearwiseCounts() {
-    final counts = <int, int>{};
-    for (final entry in _allReferences()) {
-      final rawYear = entry['year'];
-      final year = rawYear is int
-          ? rawYear
-          : int.tryParse(rawYear?.toString() ?? '');
-      if (year == null || year <= 0) continue;
-      counts.update(year, (value) => value + 1, ifAbsent: () => 1);
-    }
-
-    final items = counts.entries
-        .map((entry) => {'year': entry.key, 'count': entry.value})
-        .toList(growable: true);
-    items.sort((a, b) => (b['year'] ?? 0).compareTo(a['year'] ?? 0));
-    return items;
-  }
-
-  String _authorsLine(Map<String, dynamic> entry) {
-    final authors = (entry['authors'] as List<dynamic>? ?? const [])
-        .map((author) => author.toString().trim())
-        .where((author) => author.isNotEmpty)
-        .toList(growable: false);
-    if (authors.isEmpty) return 'Unknown authors';
-    return authors.join(', ');
-  }
-
-  String _venueYearLine(Map<String, dynamic> entry) {
-    final venue = (entry['venue'] ?? '').toString().trim();
-    final year = (entry['year'] ?? '').toString().trim();
-
-    final parts = <String>[];
-    if (venue.isNotEmpty) parts.add(venue);
-    if (year.isNotEmpty && year != 'null') parts.add(year);
-
-    if (parts.isEmpty) return 'Unknown publication';
-    if (parts.length == 1) return parts.first;
-    return '${parts.first} • ${parts.last}';
-  }
-
-  String _paperDisplaySubtitle(Map<String, dynamic> entry) {
-    final authors = _authorsLine(entry);
-    final publication = _venueYearLine(entry);
-    return '$authors\n$publication';
   }
 
   Future<void> _openPaperUrl(String url) async {
@@ -313,7 +167,7 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
 
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
-      setState(() => _status = 'Could not open this paper URL.');
+      setState(() => _status = 'Could not open paper URL.');
     }
   }
 
@@ -355,10 +209,7 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
     return items;
   }
 
-  Future<void> _loadRecommendations(
-    Map<String, dynamic> report,
-    String mode,
-  ) async {
+  Future<void> _loadRecommendations(Map<String, dynamic> report, String mode) async {
     final refs = (report['references'] as List<dynamic>? ?? const []);
     final missing = refs
         .whereType<Map<String, dynamic>>()
@@ -375,37 +226,33 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
           topCited: (report['top_cited'] as List<dynamic>? ?? const []),
           missingReferences: missing,
           recommendationMode: mode,
-          projectTitle: mode == 'discover'
-              ? _titleController.text.trim()
-              : null,
-          basicDetails: mode == 'discover'
-              ? _detailsController.text.trim()
-              : null,
+          projectTitle: mode == 'discover' ? _titleController.text.trim() : null,
+          basicDetails: mode == 'discover' ? _detailsController.text.trim() : null,
         ),
       );
 
       if (!mounted) return;
-      setState(() {
-        _recommendations = rec;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _recommendations = null;
-        _status =
-            'Citation analysis completed, but recommendation generation failed: ${_friendlyError(e, 'Unknown error')}';
-      });
+      setState(() => _recommendations = rec);
+    } catch (_) {
+      // Recommendations optional fallback
     }
   }
 
   Future<void> _runUploadStream() async {
+    final path = _filePath ?? '';
+    if (path.isEmpty || !File(path).existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a valid PDF or DOCX file first.')));
+      return;
+    }
+
     setState(() {
       _loading = true;
-      _status = '';
+      _status = 'Connecting to Semantic Scholar citation graph...';
       _report = null;
       _recommendations = null;
       _progress = null;
     });
+    _startLoadingAnimation();
 
     try {
       await for (final event in _streamWithTokenRetry(File(_filePath!))) {
@@ -419,24 +266,18 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
               'matchedCount': 0,
               'latestTitle': null,
               'latestRef': '',
-              'lastResult': null,
             };
           });
         } else if (type == 'progress') {
-          final currentMatched =
-              ((_progress?['matchedCount'] as int?) ?? 0) +
-              ((event['matched'] ?? false) == true ? 1 : 0);
+          final currentMatched = ((_progress?['matchedCount'] as int?) ?? 0) + ((event['matched'] ?? false) == true ? 1 : 0);
           setState(() {
             _progress = {
               'current': event['current'] ?? 0,
               'total': event['total'] ?? (_progress?['total'] ?? 0),
               'extracted': _progress?['extracted'] ?? event['total'] ?? 0,
               'matchedCount': currentMatched,
-              'latestTitle': event['matched'] == true
-                  ? event['title']?.toString()
-                  : null,
+              'latestTitle': event['matched'] == true ? event['title']?.toString() : null,
               'latestRef': event['reference_text']?.toString() ?? '',
-              'lastResult': event['matched'] == true ? 'matched' : 'miss',
             };
           });
         } else if (type == 'done') {
@@ -445,753 +286,565 @@ class _CitationIntelligenceTabState extends State<CitationIntelligenceTab> {
           setState(() {
             _report = report;
             _progress = null;
-            _status =
-                'Loaded citation report (${(report['references_processed'] ?? 0)} references processed).';
+            _status = 'Processed ${(report['references_processed'] ?? 0)} citations successfully!';
           });
-          await _loadRecommendations(report, 'upload');
-        } else if (type == 'error') {
-          throw Exception(event['message']?.toString() ?? 'Server error');
+          _loadRecommendations(report, 'upload');
         }
       }
     } catch (e) {
-      setState(
-        () => _status =
-            'Citation intelligence failed: ${_friendlyError(e, 'Request failed')}',
-      );
+      if (!mounted) return;
+      setState(() => _status = 'Citation stream failed: $e');
     } finally {
       _stopLoadingAnimation();
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _saveResult() async {
-    if (_report == null) {
-      return;
-    }
-    if (widget.jwtToken.trim().isEmpty) {
-      setState(
-        () => _status = 'Add JWT token in Setup to save citation results.',
-      );
-      return;
-    }
-
-    setState(() {
-      _saving = true;
-      _status = '';
-    });
-
-    try {
-      final title = _mode == 'discover'
-          ? (_titleController.text.trim().isEmpty
-                ? 'Project Discovery Citations'
-                : _titleController.text.trim())
-          : (_filePath == null
-                ? 'Uploaded Paper Citations'
-                : _filePath!.split(Platform.pathSeparator).last);
-
-      final summary =
-          '${(_report?['references_processed'] ?? 0)} processed • ${(_report?['matched_count'] ?? 0)} matched';
-
-      await _withTokenRetry(
-        (api) => api.createSavedItem(
-          section: 'citation_intelligence',
-          title: title,
-          summary: summary,
-          payload: {
-            'mode': _mode,
-            'projectTitle': _titleController.text.trim(),
-            'basicDetails': _detailsController.text.trim(),
-            'topicPreset': _topicPreset,
-            'report': _report,
-            'recommendations': _recommendations,
-          },
-        ),
-      );
-
-      setState(() => _status = 'Citation result saved.');
-    } catch (e) {
-      setState(
-        () => _status = 'Save failed: ${_friendlyError(e, 'Request failed')}',
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
-    }
-  }
-
-  Future<void> _run() async {
-    if (_mode == 'upload' && (_filePath == null || _filePath!.isEmpty)) {
-      setState(() => _status = 'Pick a file first.');
-      return;
-    }
-    if (_mode == 'discover' && _titleController.text.trim().isEmpty) {
-      setState(() => _status = 'Enter project title first.');
+  Future<void> _runDiscover() async {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a project title or domain topic.')));
       return;
     }
 
     setState(() {
       _loading = true;
-      _startLoadingAnimation();
-      _status = '';
+      _status = 'Mining Semantic Scholar for domain citations...';
       _report = null;
       _recommendations = null;
       _progress = null;
     });
+    _startLoadingAnimation();
 
     try {
-      if (_mode == 'upload') {
-        await _runUploadStream();
-        return;
-      }
-
       final report = await _withTokenRetry(
         (api) => api.discoverCitations(
-          projectTitle: _titleController.text.trim(),
+          projectTitle: title,
           basicDetails: _detailsController.text.trim(),
-          topicPreset: _topicPreset == 'auto' ? null : _topicPreset,
+          topicPreset: _topicPreset,
         ),
       );
 
+      if (!mounted) return;
       setState(() {
         _report = report;
-        _status =
-            'Loaded citation report (${(report['references_processed'] ?? 0)} references processed).';
+        _status = 'Discovered ${(report['top_cited'] as List?)?.length ?? 0} high-impact papers!';
       });
-      await _loadRecommendations(report, 'discover');
+      _loadRecommendations(report, 'discover');
     } catch (e) {
-      setState(
-        () => _status =
-            'Citation intelligence failed: ${_friendlyError(e, 'Request failed')}',
-      );
+      if (!mounted) return;
+      setState(() => _status = 'Discovery failed: $e');
     } finally {
       _stopLoadingAnimation();
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _saveMatrix() async {
+    if (_report == null || _saving) return;
+    final title = _mode == 'discover' ? (_titleController.text.trim().isEmpty ? 'Citation Discovery' : _titleController.text.trim()) : 'Paper Citation Graph';
+
+    setState(() => _saving = true);
+    try {
+      await _withTokenRetry((api) => api.createSavedItem(
+            section: 'citation',
+            title: title,
+            summary: 'Citation Intelligence report with ${(_report!['top_cited'] as List?)?.length ?? 0} ranked references.',
+            payload: {
+              'report': _report,
+              'recommendations': _recommendations,
+              'mode': _mode,
+            },
+          ));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saved "$title" to Research Workspace!')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save matrix: $e')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final topCited = _sortedTopCited();
-    final yearCounts = _yearwiseCounts();
-    final missingRefs = _missingReferences();
-    final maxYearCount = yearCounts.fold<int>(
-      1,
-      (prev, item) => (item['count'] ?? 0) > prev ? (item['count'] ?? 0) : prev,
-    );
-    final progressCurrent = (_progress?['current'] as int?) ?? 0;
-    final progressTotal = (_progress?['total'] as int?) ?? 0;
-    final progressValue = progressTotal > 0
-        ? progressCurrent / progressTotal
-        : null;
+    final textColor = isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight;
+    final subtextColor = isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight;
 
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        PostSigninSectionCard(
-          title: 'Citation Intelligence Pro',
-          icon: Icons.auto_graph_rounded,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isDark
-                        ? const [Color(0xFF2A3448), Color(0xFF3D4A66)]
-                        : const [Color(0xFFECF2FF), Color(0xFFDEE8FF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark
-                        ? const Color(0xFF5A6A8F)
-                        : const Color(0xFFC8D8FA),
-                  ),
-                ),
-                child: Text(
-                  'Analyze uploaded references or discover domain papers, rank evidence by citation impact and recency, and generate guided reading priorities.',
-                  textAlign: TextAlign.justify,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : const Color(0xFF2D456D),
-                    height: 1.35,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'upload', label: Text('Upload Paper')),
-                  ButtonSegment(
-                    value: 'discover',
-                    label: Text('Discover Topic'),
-                  ),
-                ],
-                selected: {_mode},
-                onSelectionChanged: (selection) {
-                  setState(() => _mode = selection.first);
-                },
-              ),
-              const SizedBox(height: 10),
-              if (_mode == 'upload')
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.25,
-                          )
-                        : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark
-                          ? colorScheme.outline.withValues(alpha: 0.45)
-                          : const Color(0xFFE4EAF2),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: _loading ? null : _pickFile,
-                        icon: const Icon(Icons.upload_file_rounded),
-                        label: const Text('Pick PDF/DOCX'),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _filePath == null
-                              ? 'No file selected'
-                              : _filePath!.split(Platform.pathSeparator).last,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else ...[
-                TextField(
-                  controller: _titleController,
-                  decoration: InputDecoration(
-                    labelText: 'Project Title',
-                    border: const OutlineInputBorder(),
-                    filled: true,
-                    fillColor: isDark
-                        ? colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.3,
-                          )
-                        : Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _detailsController,
-                  minLines: 3,
-                  maxLines: 6,
-                  decoration: InputDecoration(
-                    labelText: 'Basic Details',
-                    border: const OutlineInputBorder(),
-                    filled: true,
-                    fillColor: isDark
-                        ? colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.3,
-                          )
-                        : Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _topicPreset,
-                  decoration: InputDecoration(
-                    labelText: 'Topic Preset',
-                    border: const OutlineInputBorder(),
-                    filled: true,
-                    fillColor: isDark
-                        ? colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.3,
-                          )
-                        : Colors.white,
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'auto', child: Text('Auto Detect')),
-                    DropdownMenuItem(
-                      value: 'plant_pathology',
-                      child: Text('Plant Pathology'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'agricultural_disease',
-                      child: Text('Agricultural Disease'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'medical_imaging',
-                      child: Text('Medical Imaging'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'medical_diagnosis',
-                      child: Text('Medical Diagnosis'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'remote_sensing',
-                      child: Text('Remote Sensing'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'climate_earth_observation',
-                      child: Text('Climate / Earth Observation'),
-                    ),
+    final topCitedList = _sortedTopCited();
+    final steps = _processStepsForMode();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PostSigninSectionCard(
+            title: 'Citation Intelligence Studio',
+            subtitle: 'Map paper bibliography impact, uncover missing literature links, and generate AI reading roadmaps.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Mode Switcher Tabs
+                Row(
+                  children: [
+                    _modeChip('upload', 'Upload Paper PDF/DOCX', Icons.upload_file_rounded, isDark),
+                    const SizedBox(width: 8),
+                    _modeChip('discover', 'Discover Topic Citations', Icons.travel_explore_rounded, isDark),
                   ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _topicPreset = value);
-                    }
-                  },
                 ),
-              ],
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: _loading ? null : _run,
-                icon: const Icon(Icons.play_circle_fill_rounded),
-                label: Text(_loading ? 'Running...' : 'Run Citation Analysis'),
-              ),
-              if (_loading) ...[
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.35,
-                          )
-                        : const Color(0xFFF4F8FF),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isDark
-                          ? colorScheme.outline.withValues(alpha: 0.35)
-                          : const Color(0xFFD8E4FA),
+                const SizedBox(height: 16),
+
+                if (_mode == 'upload') ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: isDark ? SaaSTheme.surfaceDark.withValues(alpha: 0.6) : SaaSTheme.bgLightSecondary,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.picture_as_pdf_rounded, size: 30, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark),
+                        const SizedBox(height: 8),
+                        Text(
+                          _filePath != null ? File(_filePath!).path.split(Platform.pathSeparator).last : 'Select PDF or DOCX File',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: textColor),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _pickFile,
+                          icon: const Icon(Icons.folder_open_rounded, size: 16),
+                          label: Text(_filePath != null ? 'Change File' : 'Browse Paper File'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: textColor,
+                            side: BorderSide(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Finding papers...',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      ..._processStepsForMode().asMap().entries.map((entry) {
-                        final active = entry.key == _loadingStepIndex;
+                ] else ...[
+                  // Preset domain chips
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _topicPresets.map((preset) {
+                        final isSelected = _topicPreset == preset.$1;
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                active
-                                    ? Icons.timelapse_rounded
-                                    : Icons.check_circle_outline_rounded,
-                                size: 14,
-                                color: active
-                                    ? colorScheme.primary
-                                    : colorScheme.onSurface.withValues(
-                                        alpha: 0.5,
-                                      ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: AnimatedDefaultTextStyle(
-                                  duration: const Duration(milliseconds: 220),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: active
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                    color: active
-                                        ? colorScheme.primary
-                                        : colorScheme.onSurface.withValues(
-                                            alpha: 0.75,
-                                          ),
-                                  ),
-                                  child: Text(entry.value),
-                                ),
-                              ),
-                            ],
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            label: Text(preset.$2),
+                            selected: isSelected,
+                            onSelected: (_) => setState(() => _topicPreset = preset.$1),
+                            selectedColor: isDark ? SaaSTheme.primaryTeal.withValues(alpha: 0.2) : SaaSTheme.primaryTealDark.withValues(alpha: 0.15),
+                            backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+                            labelStyle: TextStyle(
+                              fontSize: 11,
+                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                              color: isSelected ? (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark) : subtextColor,
+                            ),
                           ),
                         );
-                      }),
-                    ],
-                  ),
-                ),
-              ],
-              if (_status.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                PostSigninInfoBox(text: _status),
-              ],
-              if (_progress != null) ...[
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEDF5F4),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Streaming progress: $progressCurrent / $progressTotal',
-                      ),
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(value: progressValue),
-                      const SizedBox(height: 8),
-                      Text('Matched: ${(_progress?['matchedCount'] ?? 0)}'),
-                      if (((_progress?['latestRef'] ?? '') as String)
-                          .isNotEmpty)
-                        Text(
-                          'Latest reference: ${(_progress?['latestRef'] ?? '').toString()}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.justify,
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        if (_report != null)
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: _saving ? null : _saveResult,
-                  icon: const Icon(Icons.bookmark_add_rounded),
-                  label: Text(_saving ? 'Saving...' : 'Save Results'),
-                ),
-              ),
-            ],
-          ),
-        if (_report != null) const SizedBox(height: 10),
-        if (_report != null)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Wrap(
-                alignment: WrapAlignment.spaceEvenly,
-                spacing: 20,
-                runSpacing: 10,
-                children: [
-                  _metric(
-                    context,
-                    'Processed',
-                    (_report?['references_processed'] ?? '0').toString(),
-                  ),
-                  _metric(
-                    context,
-                    'Matched',
-                    (_report?['matched_count'] ?? '0').toString(),
-                  ),
-                  _metric(
-                    context,
-                    'Missing',
-                    (_report?['missing_count'] ?? '0').toString(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        if (topCited.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          _expandableBlock(
-            context: context,
-            title: 'Top Cited Papers',
-            trailing: '${topCited.length}',
-            expanded: _expandTopCited,
-            onToggle: () {
-              setState(() => _expandTopCited = !_expandTopCited);
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 190,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _sortOrder,
-                    decoration: const InputDecoration(
-                      labelText: 'Sort',
-                      border: OutlineInputBorder(),
-                      isDense: true,
+                      }).toList(),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 'newest', child: Text('Newest')),
-                      DropdownMenuItem(value: 'oldest', child: Text('Oldest')),
-                      DropdownMenuItem(
-                        value: 'highest',
-                        child: Text('Highest Citations'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'lowest',
-                        child: Text('Lowest Citations'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _sortOrder = value);
-                      }
-                    },
                   ),
-                ),
-                const SizedBox(height: 8),
-                ...topCited.take(12).map((entry) {
-                  final url = (entry['url'] ?? '').toString();
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? colorScheme.surfaceContainerHighest.withValues(
-                              alpha: 0.35,
-                            )
-                          : const Color(0xFFF7FAFF),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isDark
-                            ? colorScheme.outline.withValues(alpha: 0.35)
-                            : const Color(0xFFE1EAF8),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                (entry['title'] ?? 'Unknown title').toString(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _paperDisplaySubtitle(entry),
-                                style: TextStyle(
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.78,
-                                  ),
-                                  height: 1.35,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Citations: ${(entry['citation_count'] ?? '0').toString()}',
-                                style: TextStyle(
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.72,
-                                  ),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (url.isNotEmpty)
-                          IconButton(
-                            tooltip: 'Open paper',
-                            icon: const Icon(Icons.open_in_new_rounded),
-                            onPressed: () => _openPaperUrl(url),
-                          ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
-        ],
-        if (yearCounts.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          _expandableBlock(
-            context: context,
-            title: 'Year-wise Distribution',
-            trailing: '${yearCounts.length}',
-            expanded: _expandYearwise,
-            onToggle: () {
-              setState(() => _expandYearwise = !_expandYearwise);
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ...yearCounts.take(10).map((item) {
-                  final year = (item['year'] ?? 0).toString();
-                  final count = item['count'] ?? 0;
-                  final fraction = maxYearCount > 0
-                      ? count / maxYearCount
-                      : 0.0;
+                  const SizedBox(height: 12),
 
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
+                  TextField(
+                    controller: _titleController,
+                    decoration: InputDecoration(
+                      labelText: 'Project / Paper Title',
+                      hintText: 'e.g., Deep Residual Learning for Image Recognition',
+                      hintStyle: TextStyle(fontSize: 12, color: subtextColor),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  TextField(
+                    controller: _detailsController,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: 'Research Scope & Domain Details',
+                      hintText: 'Describe key methods, evaluation baselines, or target domains...',
+                      hintStyle: TextStyle(fontSize: 12, color: subtextColor),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+
+                // Loading Status Ticker
+                if (_loading)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? SaaSTheme.bgDarkSecondary : SaaSTheme.bgLightSecondary,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                    ),
+                    child: Column(
                       children: [
-                        SizedBox(width: 56, child: Text(year)),
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: LinearProgressIndicator(
-                              value: fraction,
-                              minHeight: 8,
+                        LinearProgressIndicator(
+                          color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                          backgroundColor: isDark ? SaaSTheme.surfaceDark : Colors.white,
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                steps[_loadingStepIndex.clamp(0, steps.length - 1)],
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 12, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark, fontWeight: FontWeight.w700),
+                              ),
                             ),
+                          ],
+                        ),
+                        if (_progress != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Matched ${_progress!['matchedCount']} / ${_progress!['total']} references with Semantic Scholar',
+                            style: TextStyle(fontSize: 10, color: subtextColor),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 24,
-                          child: Text('$count', textAlign: TextAlign.right),
-                        ),
+                        ],
                       ],
                     ),
-                  );
-                }),
-              ],
-            ),
-          ),
-        ],
-        if (missingRefs.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          _expandableBlock(
-            context: context,
-            title: 'Unmatched References',
-            trailing: '${missingRefs.length}',
-            expanded: _expandUnmatched,
-            onToggle: () {
-              setState(() => _expandUnmatched = !_expandUnmatched);
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ...missingRefs.take(10).map((entry) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? colorScheme.surfaceContainerHighest.withValues(
-                                alpha: 0.35,
-                              )
-                            : const Color(0xFFF7F8FA),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        (entry['reference_text'] ?? 'Unknown reference')
-                            .toString(),
-                        textAlign: TextAlign.justify,
-                        style: const TextStyle(height: 1.34),
-                      ),
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
-        ],
-        if (_recommendations != null) ...[
-          const SizedBox(height: 10),
-          _expandableBlock(
-            context: context,
-            title: 'AI Reading Guidance',
-            trailing:
-                '${((_recommendations?['reading_path'] as List<dynamic>?) ?? const []).length}',
-            expanded: _expandGuidance,
-            onToggle: () {
-              setState(() => _expandGuidance = !_expandGuidance);
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (((_recommendations?['reading_path'] as List<dynamic>?) ??
-                        const [])
-                    .isEmpty)
-                  const Text('No reading path suggestions returned.')
-                else
-                  ...((_recommendations?['reading_path'] as List<dynamic>).map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('• '),
-                          Expanded(
-                            child: Text(
-                              item.toString(),
-                              textAlign: TextAlign.justify,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )),
-                if (((_recommendations?['coverage_gaps'] as List<dynamic>?) ??
-                        const [])
-                    .isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    'Coverage Gaps',
-                    style: Theme.of(context).textTheme.labelLarge,
+                  )
+                else if (_status.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(_status, style: TextStyle(fontSize: 12, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark, fontWeight: FontWeight.w600)),
                   ),
-                  const SizedBox(height: 6),
-                  ...((_recommendations?['coverage_gaps'] as List<dynamic>).map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('• '),
-                          Expanded(
-                            child: Text(
-                              item.toString(),
-                              textAlign: TextAlign.justify,
-                            ),
-                          ),
-                        ],
-                      ),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _loading ? null : (_mode == 'upload' ? _runUploadStream : _runDiscover),
+                    icon: _loading
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF041814)))
+                        : const Icon(Icons.auto_graph_rounded, size: 18),
+                    label: Text(
+                      _loading ? 'Processing Citation Graph...' : (_mode == 'upload' ? 'Map Paper Bibliography' : 'Discover Topic Citation Network'),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
                     ),
-                  )),
-                ],
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                      foregroundColor: const Color(0xFF041814),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
+
+          const SizedBox(height: 20),
+
+          // Output Citation Results
+          if (_report != null) ...[
+            // Report Summary Header & Sort Chips
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.verified_rounded, color: SaaSTheme.primaryTeal, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Ranked Citations (${topCitedList.length})',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor),
+                    ),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: _saving ? null : _saveMatrix,
+                  icon: const Icon(Icons.bookmark_border_rounded, size: 14),
+                  label: const Text('Save Matrix'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+                    foregroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                    elevation: 0,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Sort Filter Chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _sortChip('highest', 'Highest Citations 🔥', isDark),
+                  const SizedBox(width: 4),
+                  _sortChip('newest', 'Newest First 📅', isDark),
+                  const SizedBox(width: 4),
+                  _sortChip('oldest', 'Oldest First ⏳', isDark),
+                  const SizedBox(width: 4),
+                  _sortChip('lowest', 'Lowest Citations', isDark),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // AI Recommendations Box
+            if (_recommendations != null) ...[
+              _buildRecommendationsBox(_recommendations!, isDark, textColor, subtextColor),
+              const SizedBox(height: 16),
+            ],
+
+            // Citation Cards List
+            ...List.generate(topCitedList.length, (index) {
+              final paper = topCitedList[index];
+              return _citationCard(paper, index, isDark, textColor, subtextColor);
+            }),
+          ],
         ],
-      ],
+      ),
     );
   }
 
-  Widget _metric(BuildContext context, String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+  Widget _modeChip(String key, String label, IconData icon, bool isDark) {
+    final isSelected = _mode == key;
+    final activeColor = isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark;
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _mode = key),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? activeColor.withValues(alpha: 0.15) : (isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: isSelected ? activeColor : (isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: isSelected ? activeColor : (isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight)),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                      color: isSelected ? activeColor : (isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        Text(label),
-      ],
+      ),
+    );
+  }
+
+  Widget _sortChip(String key, String label, bool isDark) {
+    final isSelected = _sortOrder == key;
+    final activeColor = isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark;
+
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => setState(() => _sortOrder = key),
+      selectedColor: activeColor.withValues(alpha: 0.2),
+      backgroundColor: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+      labelStyle: TextStyle(
+        fontSize: 11,
+        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+        color: isSelected ? activeColor : (isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight),
+      ),
+    );
+  }
+
+  Widget _citationCard(Map<String, dynamic> paper, int index, bool isDark, Color textColor, Color subtextColor) {
+    final title = (paper['title'] ?? paper['reference_text'] ?? 'Untitled Citation Entry #${index + 1}').toString();
+    final year = (paper['year'] ?? '').toString();
+    final venue = (paper['venue'] ?? '').toString();
+    final citations = (paper['citation_count'] as num?)?.toInt() ?? 0;
+    final url = (paper['url'] ?? paper['paper_url'] ?? '').toString();
+    final isMatched = (paper['matched'] ?? true) == true;
+
+    final authorsList = (paper['authors'] as List<dynamic>? ?? const [])
+        .map((a) => a.toString())
+        .where((a) => a.isNotEmpty)
+        .join(', ');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: SaaSTheme.accentCyan.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '🔥 $citations citations',
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: SaaSTheme.accentCyan),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (isMatched)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.greenAccent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('Semantic Scholar Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.greenAccent)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor, height: 1.35),
+          ),
+          if (authorsList.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(authorsList, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: subtextColor)),
+          ],
+          if (venue.isNotEmpty || year.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text('$venue ${year.isNotEmpty ? "($year)" : ""}', style: TextStyle(fontSize: 10, color: subtextColor, fontWeight: FontWeight.w600)),
+          ],
+
+          if (url.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                onPressed: () => _openPaperUrl(url),
+                icon: const Icon(Icons.open_in_new_rounded, size: 14),
+                label: const Text('Open Paper Link'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                  side: BorderSide(color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark).withValues(alpha: 0.4)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ).animate().fadeIn(delay: (index * 40).ms, duration: 350.ms);
+  }
+
+  Widget _buildRecommendationsBox(Map<String, dynamic> rec, bool isDark, Color textColor, Color subtextColor) {
+    final focus = (rec['paper_focus'] ?? '').toString();
+    final mustRead = (rec['must_read'] as List<dynamic>? ?? const []).whereType<Map<String, dynamic>>().toList();
+    final path = (rec['reading_path'] as List<dynamic>? ?? const []).map((e) => e.toString()).toList();
+    final gaps = (rec['coverage_gaps'] as List<dynamic>? ?? const []).map((e) => e.toString()).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded, color: SaaSTheme.accentViolet, size: 20),
+              const SizedBox(width: 8),
+              Text('AI Reading Roadmap & Coverage Analysis', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor)),
+            ],
+          ),
+          if (focus.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(focus, style: TextStyle(fontSize: 12, height: 1.45, color: subtextColor)),
+          ],
+
+          if (mustRead.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text('Must-Read References', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textColor)),
+            const SizedBox(height: 6),
+            ...mustRead.map((item) {
+              final t = (item['title'] ?? '').toString();
+              final why = (item['why_read'] ?? '').toString();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.star_rounded, size: 14, color: SaaSTheme.accentAmber),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textColor)),
+                          if (why.isNotEmpty) Text(why, style: TextStyle(fontSize: 11, color: subtextColor)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+
+          if (path.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text('Recommended Reading Path', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textColor)),
+            const SizedBox(height: 6),
+            ...List.generate(path.length, (idx) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    Text('${idx + 1}. ', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: SaaSTheme.primaryTeal)),
+                    Expanded(child: Text(path[idx], style: TextStyle(fontSize: 12, color: subtextColor))),
+                  ],
+                ),
+              );
+            }),
+          ],
+
+          if (gaps.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text('Identified Literature Gaps', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textColor)),
+            const SizedBox(height: 6),
+            ...gaps.map((gap) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, size: 14, color: SaaSTheme.accentMagenta),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(gap, style: TextStyle(fontSize: 12, color: subtextColor))),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
     );
   }
 }
