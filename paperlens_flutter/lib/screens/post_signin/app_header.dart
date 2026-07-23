@@ -19,55 +19,51 @@ class PostSigninHeader extends StatelessWidget {
   static const _meta = [
     (
       'Dashboard Overview',
-      'Track platform activity, spot usage patterns, and quickly validate what matters most right now.',
+      'Track platform activity, spot research trends, and manage saved items.',
       Icons.dashboard_customize_rounded,
-      [
-        'Realtime metrics snapshot',
-        'Faster trend visibility',
-        'Action-oriented overview',
-      ],
+      ['Metrics snapshot', 'Trend visibility', 'Quick launchpad'],
     ),
     (
       'Paper Analyzer',
-      'Extract core ideas from dense papers and ask contextual follow-up questions without losing momentum.',
+      'Extract key equations, summary proofs, and ask contextual paper questions.',
       Icons.description_rounded,
-      ['Upload PDF or DOCX', 'Context-aware Q&A', 'Evidence-first summaries'],
+      ['Upload PDF/DOCX', 'Context Q&A', 'Evidence summary'],
     ),
     (
       'Citation Intelligence',
-      'Inspect references, locate missing links, and build stronger reading paths for more rigorous projects.',
+      'Inspect paper references, locate missing links, and map network impact.',
       Icons.auto_graph_rounded,
-      ['Citation mapping', 'Coverage gaps', 'Reading guidance'],
+      ['Citation mapping', 'Coverage gaps', 'Reading paths'],
     ),
     (
       'Gap Detection',
-      'Identify underexplored opportunities from your text or uploaded documents and turn them into next actions.',
+      'Identify underexplored research opportunities from raw text or PDFs.',
       Icons.search_rounded,
-      ['Text or file input', 'Opportunity surfacing', 'Action suggestions'],
+      ['Literature scanning', 'Opportunity ranking', '1-Tap save'],
     ),
     (
       'Problem Generator',
-      'Generate novel research ideas and expand promising directions into structured implementation briefs.',
+      'Formulate novel hypotheses and expand directions into execution briefs.',
       Icons.lightbulb_rounded,
-      ['Idea brainstorming', 'Structured expansions', 'Save reusable briefs'],
+      ['Brainstorming', 'Hypothesis briefs', 'Methodology plans'],
     ),
     (
-      'Dataset and Benchmark Finder',
-      'Discover fitting datasets, benchmark targets, and tool recommendations aligned with your project scope.',
+      'Dataset & Benchmark Finder',
+      'Discover fitting datasets, benchmark targets, and tool recommendations.',
       Icons.dataset_rounded,
-      ['Curated datasets', 'Benchmark mapping', 'Technology suggestions'],
+      ['Curated datasets', 'Leaderboard targets', 'Tool mapping'],
     ),
     (
       'Experiment Planner',
-      'Convert topics into practical, stepwise execution plans tailored by difficulty and clarity of scope.',
+      'Convert topics into practical execution blueprints tailored by difficulty.',
       Icons.science_rounded,
-      ['Guided plan steps', 'Difficulty presets', 'Execution-friendly format'],
+      ['Stepwise plans', 'Difficulty presets', 'Execution format'],
     ),
     (
-      'Settings and Workspace',
-      'Manage profile, theme, saved outputs, and session controls for a smoother day-to-day workflow.',
+      'Settings & Workspace',
+      'Manage profile details, visual appearance, and saved research items.',
       Icons.settings_rounded,
-      ['Profile settings', 'Saved items', 'Session controls'],
+      ['Researcher profile', 'Theme controls', 'Saved briefs'],
     ),
   ];
 
@@ -82,93 +78,63 @@ class PostSigninHeader extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 2),
       decoration: SaaSTheme.glassCardDecoration(
         isDark: isDark,
-        borderRadius: 16,
+        borderRadius: 14,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Top Row: Section Icon + Title + Compact User Badge & Actions
+              // Top Row: Section Icon + Title + Compact User Profile Avatar
               Row(
                 children: [
                   Container(
-                    width: 32,
-                    height: 32,
+                    width: 28,
+                    height: 28,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)
                           .withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)
-                            .withValues(alpha: 0.3),
-                      ),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
                       section.$3,
                       color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
-                      size: 18,
+                      size: 16,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          section.$1,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            Container(
-                              width: 5,
-                              height: 5,
-                              decoration: const BoxDecoration(
-                                color: SaaSTheme.primaryTeal,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Cloud Active',
-                              style: TextStyle(
-                                color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                    child: Text(
+                      section.$1,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                      ),
                     ),
                   ),
 
-                  // Compact User Profile Avatar (from Clerk)
+                  // Compact User Profile Avatar
                   Builder(
                     builder: (context) {
                       try {
                         final auth = ClerkAuth.of(context, listen: true);
                         final user = auth.user;
-                        final firstName = user?.firstName ?? 'User';
-                        final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U';
+                        final firstName = user?.firstName ?? 'Researcher';
+                        final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'R';
 
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                           decoration: BoxDecoration(
                             color: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
                             borderRadius: BorderRadius.circular(999),
@@ -180,13 +146,13 @@ class PostSigninHeader extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               CircleAvatar(
-                                radius: 10,
+                                radius: 9,
                                 backgroundColor: SaaSTheme.primaryTeal,
                                 child: Text(
                                   initial,
                                   style: const TextStyle(
                                     color: Color(0xFF041814),
-                                    fontSize: 10,
+                                    fontSize: 9,
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),
@@ -199,7 +165,7 @@ class PostSigninHeader extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     color: textColor,
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -212,72 +178,22 @@ class PostSigninHeader extends StatelessWidget {
                       }
                     },
                   ),
-                  const SizedBox(width: 4),
-
-                  SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: IconButton(
-                      onPressed: onRefreshToken,
-                      padding: EdgeInsets.zero,
-                      icon: Icon(
-                        Icons.sync_rounded,
-                        color: isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight,
-                        size: 16,
-                      ),
-                      tooltip: 'Sync Session Token',
-                    ),
-                  ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
 
-              // Full Readable Description (No line cut off or "..." ellipsis)
-              Text(
-                section.$2,
-                style: TextStyle(
-                  color: subtextColor,
-                  fontSize: 12,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Compact Feature Badges
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  children: section.$4
-                      .map(
-                        (point) => Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? SaaSTheme.surfaceDark.withValues(alpha: 0.7)
-                                  : SaaSTheme.bgLightSecondary,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight,
-                              ),
-                            ),
-                            child: Text(
-                              point,
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(growable: false),
+              // Fixed Height Description Area (Never flexes or changes box size across tabs)
+              SizedBox(
+                height: 32,
+                child: Text(
+                  section.$2,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: subtextColor,
+                    fontSize: 11,
+                    height: 1.35,
+                  ),
                 ),
               ),
             ],

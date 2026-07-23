@@ -216,7 +216,7 @@ class _SettingsTabState extends State<SettingsTab> {
 
           const SizedBox(height: 20),
 
-          // Backend API Health & Session Sync Card
+          // Account & Security Controls Card
           Container(
             padding: const EdgeInsets.all(20),
             decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 20),
@@ -225,13 +225,11 @@ class _SettingsTabState extends State<SettingsTab> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.dns_rounded, color: SaaSTheme.accentCyan, size: 20),
+                    const Icon(Icons.security_rounded, color: SaaSTheme.accentCyan, size: 20),
                     const SizedBox(width: 8),
-                    Text('API Backend & Session Sync', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor)),
+                    Text('Account & Security', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor)),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text('API Endpoint: ${widget.baseUrl}', style: TextStyle(fontSize: 12, color: subtextColor, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -239,7 +237,7 @@ class _SettingsTabState extends State<SettingsTab> {
                       child: OutlinedButton.icon(
                         onPressed: widget.onSyncToken,
                         icon: const Icon(Icons.sync_rounded, size: 16),
-                        label: const Text('Refresh Session Token'),
+                        label: const Text('Sync Credentials'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: textColor,
                           side: BorderSide(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),

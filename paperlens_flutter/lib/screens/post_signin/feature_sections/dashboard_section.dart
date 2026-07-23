@@ -310,6 +310,63 @@ class _PostSigninDashboardSectionState extends State<PostSigninDashboardSection>
       ('Generate Ideas', Icons.lightbulb_rounded, 4, SaaSTheme.accentMagenta, 'Novel Hypotheses'),
     ];
 
+    Widget actionTile( (String, IconData, int, Color, String) act ) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => widget.onTabChanged?.call(act.$3),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: SaaSTheme.glassCardDecoration(
+              isDark: isDark,
+              borderRadius: 16,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: act.$4.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(act.$2, color: act.$4, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        act.$1,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: textColor,
+                        ),
+                      ),
+                      Text(
+                        act.$5,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: subtextColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -322,70 +379,24 @@ class _PostSigninDashboardSectionState extends State<PostSigninDashboardSection>
           ),
         ),
         const SizedBox(height: 10),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 600;
-            final width = isWide ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 10) / 2;
-
-            return Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: actions.map((act) {
-                return SizedBox(
-                  width: width,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => widget.onTabChanged?.call(act.$3),
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: SaaSTheme.glassCardDecoration(
-                          isDark: isDark,
-                          borderRadius: 16,
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: act.$4.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(act.$2, color: act.$4, size: 20),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    act.$1,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w800,
-                                      color: textColor,
-                                    ),
-                                  ),
-                                  Text(
-                                    act.$5,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: subtextColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            );
-          },
+        Column(
+          children: [
+            Row(
+              children: [
+                Expanded(child: actionTile(actions[0])),
+                const SizedBox(width: 10),
+                Expanded(child: actionTile(actions[1])),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: actionTile(actions[2])),
+                const SizedBox(width: 10),
+                Expanded(child: actionTile(actions[3])),
+              ],
+            ),
+          ],
         ),
       ],
     );

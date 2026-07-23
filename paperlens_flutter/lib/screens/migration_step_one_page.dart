@@ -277,8 +277,18 @@ class _MigrationStepOnePageState extends State<MigrationStepOnePage>
     try {
       final data = await _withValidToken(() => _api().getDashboard());
       if (data == null) return;
+      
+      final mutableData = Map<String, dynamic>.from(data);
+      try {
+        final savedRes = await _withValidToken(() => _api().getSavedItems());
+        if (savedRes != null && savedRes['items'] is List) {
+          mutableData['savedItems'] = savedRes['items'];
+        }
+      } catch (_) {}
+
+      if (!mounted) return;
       setState(() {
-        _dashboard = data;
+        _dashboard = mutableData;
       });
     } catch (e) {
       _showError(_friendlyError(e, action: 'Dashboard load'));
