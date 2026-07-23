@@ -1,0 +1,3 @@
+- [ ] Remove `io.flutter.embedding.android.RenderMode` from `AndroidManifest.xml`
+- [ ] Check `build.gradle` for potential rendering-related issues
+- [ ] Verify if the black screen persists with Hardware acceleration
