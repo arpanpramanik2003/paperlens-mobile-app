@@ -243,6 +243,7 @@ class _AnalysisProgressIndicatorState extends State<_AnalysisProgressIndicator> 
           child: Row(
             key: ValueKey(_step),
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
                 width: 12,
@@ -253,12 +254,15 @@ class _AnalysisProgressIndicatorState extends State<_AnalysisProgressIndicator> 
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                _steps[_step],
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
-                  fontWeight: FontWeight.w700,
+              Flexible(
+                child: Text(
+                  _steps[_step],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -591,26 +595,61 @@ class _PostSigninAnalyzerSectionState extends State<PostSigninAnalyzerSection> {
 
           // Main Results Section (Dual-Pane / View Mode Switcher)
           if (hasAnalysis) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Paper Analysis & Interrogation',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor),
-                ),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
+            LayoutBuilder(
+              builder: (context, headerConstraints) {
+                final isHeaderWide = headerConstraints.maxWidth >= 600;
+
+                if (!isHeaderWide) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _viewTabChip(0, 'Dual View', Icons.view_column_rounded, isDark),
-                      const SizedBox(width: 4),
-                      _viewTabChip(1, 'Summary Only', Icons.article_rounded, isDark),
-                      const SizedBox(width: 4),
-                      _viewTabChip(2, 'Q&A Chat Only', Icons.chat_rounded, isDark),
+                      Text(
+                        'Paper Analysis & Interrogation',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor),
+                      ),
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Row(
+                          children: [
+                            _viewTabChip(0, 'Dual View', Icons.view_column_rounded, isDark),
+                            const SizedBox(width: 4),
+                            _viewTabChip(1, 'Summary Only', Icons.article_rounded, isDark),
+                            const SizedBox(width: 4),
+                            _viewTabChip(2, 'Q&A Chat Only', Icons.chat_rounded, isDark),
+                          ],
+                        ),
+                      ),
                     ],
-                  ),
-                ),
-              ],
+                  );
+                }
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Paper Analysis & Interrogation',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor),
+                      ),
+                    ),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          _viewTabChip(0, 'Dual View', Icons.view_column_rounded, isDark),
+                          const SizedBox(width: 4),
+                          _viewTabChip(1, 'Summary Only', Icons.article_rounded, isDark),
+                          const SizedBox(width: 4),
+                          _viewTabChip(2, 'Q&A Chat Only', Icons.chat_rounded, isDark),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
 
