@@ -82,210 +82,206 @@ class PostSigninHeader extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 4),
       decoration: SaaSTheme.glassCardDecoration(
         isDark: isDark,
-        borderRadius: 20,
-        isHovered: true,
+        borderRadius: 16,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Top Row: Section Icon + Title + Compact User Badge & Actions
+              Row(
                 children: [
-                  // Top Row: Section Icon + Title + User Badge & Actions
-                  Row(
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)
-                              .withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)
-                                .withValues(alpha: 0.3),
+                  Container(
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)
+                          .withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)
+                            .withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Icon(
+                      section.$3,
+                      color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          section.$1,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
                           ),
                         ),
-                        child: Icon(
-                          section.$3,
-                          color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
                           children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    section.$1,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: textColor,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.4,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: const BoxDecoration(
+                                color: SaaSTheme.primaryTeal,
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                            const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: const BoxDecoration(
-                                    color: SaaSTheme.primaryTeal,
-                                    shape: BoxShape.circle,
+                            const SizedBox(width: 4),
+                            Text(
+                              'Cloud Active',
+                              style: TextStyle(
+                                color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Compact User Profile Avatar (from Clerk)
+                  Builder(
+                    builder: (context) {
+                      try {
+                        final auth = ClerkAuth.of(context, listen: true);
+                        final user = auth.user;
+                        final firstName = user?.firstName ?? 'User';
+                        final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U';
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isDark ? SaaSTheme.surfaceDark : SaaSTheme.bgLightSecondary,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircleAvatar(
+                                radius: 10,
+                                backgroundColor: SaaSTheme.primaryTeal,
+                                child: Text(
+                                  initial,
+                                  style: const TextStyle(
+                                    color: Color(0xFF041814),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'PaperLens Workspace Active',
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  firstName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
+                                    color: textColor,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // User Profile Avatar (from Clerk if available)
-                      Builder(
-                        builder: (context) {
-                          try {
-                            final auth = ClerkAuth.of(context, listen: true);
-                            final user = auth.user;
-                            final firstName = user?.firstName ?? 'User';
-                            final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U';
-
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? SaaSTheme.surfaceDark
-                                    : SaaSTheme.bgLightSecondary,
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight,
-                                ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 12,
-                                    backgroundColor: SaaSTheme.primaryTeal,
-                                    child: Text(
-                                      initial,
-                                      style: const TextStyle(
-                                        color: Color(0xFF041814),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    firstName,
-                                    style: TextStyle(
-                                      color: textColor,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          } catch (_) {
-                            return const SizedBox.shrink();
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 6),
-
-                      IconButton(
-                        onPressed: onRefreshToken,
-                        icon: Icon(
-                          Icons.sync_rounded,
-                          color: isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight,
-                          size: 18,
-                        ),
-                        tooltip: 'Sync Session Token',
-                      ),
-                    ],
+                            ],
+                          ),
+                        );
+                      } catch (_) {
+                        return const SizedBox.shrink();
+                      }
+                    },
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    section.$2,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: subtextColor,
-                      fontSize: 13,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(width: 4),
 
-                  // Feature Pills
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: Row(
-                      children: section.$4
-                          .map(
-                            (point) => Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? SaaSTheme.surfaceDark.withValues(alpha: 0.7)
-                                      : SaaSTheme.bgLightSecondary,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight,
-                                  ),
-                                ),
-                                child: Text(
-                                  point,
-                                  style: TextStyle(
-                                    color: textColor,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(growable: false),
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: IconButton(
+                      onPressed: onRefreshToken,
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        Icons.sync_rounded,
+                        color: isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight,
+                        size: 16,
+                      ),
+                      tooltip: 'Sync Session Token',
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+
+              // Full Readable Description (No line cut off or "..." ellipsis)
+              Text(
+                section.$2,
+                style: TextStyle(
+                  color: subtextColor,
+                  fontSize: 12,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Compact Feature Badges
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: section.$4
+                      .map(
+                        (point) => Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? SaaSTheme.surfaceDark.withValues(alpha: 0.7)
+                                  : SaaSTheme.bgLightSecondary,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight,
+                              ),
+                            ),
+                            child: Text(
+                              point,
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

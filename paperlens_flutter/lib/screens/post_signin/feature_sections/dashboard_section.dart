@@ -185,12 +185,14 @@ class _PostSigninDashboardSectionState extends State<PostSigninDashboardSection>
             const SizedBox(height: 24),
 
             // Saved Items Section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionHeader('Saved Research Briefs', Icons.bookmark_rounded, isDark, textColor),
+                const SizedBox(height: 10),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
                   child: Row(
                     children: [
                       _filterChip('all', 'All', isDark),
@@ -217,9 +219,9 @@ class _PostSigninDashboardSectionState extends State<PostSigninDashboardSection>
   Widget _buildWelcomeBanner(bool isDark, String userName, Color textColor, Color subtextColor) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(18),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -241,8 +243,8 @@ class _PostSigninDashboardSectionState extends State<PostSigninDashboardSection>
         boxShadow: [
           BoxShadow(
             color: (isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark).withValues(alpha: 0.12),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
+            blurRadius: 16,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -252,7 +254,7 @@ class _PostSigninDashboardSectionState extends State<PostSigninDashboardSection>
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: SaaSTheme.pillDecoration(
                   isDark: isDark,
                   glowColor: SaaSTheme.primaryTeal,
@@ -260,15 +262,15 @@ class _PostSigninDashboardSectionState extends State<PostSigninDashboardSection>
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.waving_hand_rounded, size: 13, color: SaaSTheme.primaryTeal),
-                    SizedBox(width: 6),
+                    Icon(Icons.waving_hand_rounded, size: 11, color: SaaSTheme.primaryTeal),
+                    SizedBox(width: 4),
                     Text(
-                      'AI RESEARCH SUITE ACTIVE',
+                      'AI SUITE ACTIVE',
                       style: TextStyle(
                         color: SaaSTheme.primaryTeal,
-                        fontSize: 10,
+                        fontSize: 9,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 1.0,
+                        letterSpacing: 0.8,
                       ),
                     ),
                   ],
@@ -276,28 +278,28 @@ class _PostSigninDashboardSectionState extends State<PostSigninDashboardSection>
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             'Welcome back, $userName!',
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 19,
               fontWeight: FontWeight.w900,
               color: textColor,
-              letterSpacing: -0.5,
+              letterSpacing: -0.4,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             'Synthesize research papers, uncover literature gaps, and build execution blueprints in one unified AI workspace.',
             style: TextStyle(
-              fontSize: 13,
-              height: 1.45,
+              fontSize: 12,
+              height: 1.4,
               color: subtextColor,
             ),
           ),
         ],
       ),
-    ).animate().fadeIn(duration: 500.ms);
+    ).animate().fadeIn(duration: 400.ms);
   }
 
   Widget _buildQuickLaunchpad(bool isDark, Color textColor, Color subtextColor) {
