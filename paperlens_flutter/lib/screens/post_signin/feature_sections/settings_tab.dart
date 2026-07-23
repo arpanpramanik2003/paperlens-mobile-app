@@ -42,6 +42,7 @@ class _SettingsTabState extends State<SettingsTab> {
   final _institutionController = TextEditingController();
 
   bool _loadingSaved = false;
+  bool _syncingToken = false;
   List<Map<String, dynamic>> _savedItems = const [];
 
   @override
@@ -133,22 +134,251 @@ class _SettingsTabState extends State<SettingsTab> {
     }
   }
 
+  Future<void> _handleSyncToken() async {
+    if (_syncingToken) return;
+    setState(() => _syncingToken = true);
+    try {
+      await widget.onSyncToken();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Credentials synchronized successfully!')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to sync credentials: $e')));
+    } finally {
+      if (mounted) setState(() => _syncingToken = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
     final textColor = isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight;
     final subtextColor = isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight;
 
+    // Read Clerk user credentials safely
+    String? clerkImageUrl;
+    String? clerkEmail;
+    String? clerkName;
+
+    try {
+      final auth = ClerkAuth.of(context, listen: true);
+      final user = auth.user;
+      clerkImageUrl = user?.imageUrl;
+      final emails = user?.emailAddresses;
+      if (emails != null && emails.isNotEmpty) {
+        clerkEmail = emails.first.emailAddress;
+      }
+      final firstName = user?.firstName;
+      if (firstName != null && firstName.isNotEmpty) {
+        clerkName = '$firstName ${user?.lastName ?? ''}'.trim();
+      } else {
+        clerkName = user?.username;
+      }
+    } catch (_) {}
+
+    final displayName = (_fullNameController.text.trim().isNotEmpty)
+        ? _fullNameController.text.trim()
+        : (clerkName ?? 'Researcher Account');
+
+    final displayEmail = (_emailController.text.trim().isNotEmpty)
+        ? _emailController.text.trim()
+        : (clerkEmail ?? 'Authenticated Clerk Session');
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Account Profile Settings Card
+          // Account & Security Controls Card (Upgraded SaaS Design)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: SaaSTheme.primaryTeal.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.shield_rounded, color: SaaSTheme.primaryTeal, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Account & Security', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor)),
+                          Text('Manage authentication, active JWT security, and session credentials.', style: TextStyle(fontSize: 11, color: subtextColor)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // User Identity Card
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark ? SaaSTheme.surfaceDark.withValues(alpha: 0.6) : SaaSTheme.bgLightSecondary,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: isDark ? SaaSTheme.bgDarkSecondary : Colors.white,
+                        backgroundImage: (clerkImageUrl != null && clerkImageUrl.isNotEmpty) ? NetworkImage(clerkImageUrl) : null,
+                        child: (clerkImageUrl == null || clerkImageUrl.isEmpty)
+                            ? Icon(Icons.person_rounded, size: 22, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(displayName, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor)),
+                            Text(displayEmail, style: TextStyle(fontSize: 11, color: subtextColor)),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: SaaSTheme.primaryTeal.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: SaaSTheme.primaryTeal.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.lock_outline_rounded, size: 11, color: SaaSTheme.primaryTeal),
+                            const SizedBox(width: 4),
+                            Text('JWT Active', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Credential Sync Action Item
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark ? SaaSTheme.bgDarkSecondary : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: SaaSTheme.accentCyan.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.sync_lock_rounded, color: SaaSTheme.accentCyan, size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Sync Session Credentials', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textColor)),
+                            Text('Refreshes active Clerk JWT bearer tokens with PaperLens API services.', style: TextStyle(fontSize: 11, color: subtextColor)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: _syncingToken ? null : _handleSyncToken,
+                        icon: _syncingToken
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.refresh_rounded, size: 14),
+                        label: Text(_syncingToken ? 'Syncing...' : 'Sync'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textColor,
+                          side: BorderSide(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Danger Zone Sign Out
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Sign Out of Account', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.redAccent)),
+                            Text('Terminates active Clerk session and clears local authentication cache.', style: TextStyle(fontSize: 11, color: subtextColor)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          try {
+                            await widget.onSignOut();
+                          } catch (_) {
+                            if (!context.mounted) return;
+                            try {
+                              ClerkAuth.of(context, listen: false).signOut();
+                            } catch (_) {}
+                          }
+                        },
+                        icon: const Icon(Icons.logout_rounded, size: 14),
+                        label: const Text('Sign Out'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent.withValues(alpha: 0.15),
+                          foregroundColor: Colors.redAccent,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Researcher Profile Settings Card
           PostSigninSectionCard(
             title: 'Researcher Profile',
-            icon: Icons.person_rounded,
-            subtitle: 'Manage your personal profile, academic institution, and Clerk authentication session.',
+            subtitle: 'Manage your personal profile, academic institution, and research credentials.',
             child: Column(
               children: [
                 TextField(
@@ -178,7 +408,8 @@ class _SettingsTabState extends State<SettingsTab> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isDark ? SaaSTheme.primaryTeal : SaaSTheme.primaryTealDark,
                       foregroundColor: const Color(0xFF041814),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
                   ),
                 ),
@@ -209,57 +440,6 @@ class _SettingsTabState extends State<SettingsTab> {
                   value: isDark,
                   onChanged: (val) => widget.onThemeChanged(val),
                   activeTrackColor: SaaSTheme.primaryTeal,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Account & Security Controls Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: SaaSTheme.glassCardDecoration(isDark: isDark, borderRadius: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.security_rounded, color: SaaSTheme.accentCyan, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Account & Security', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: widget.onSyncToken,
-                        icon: const Icon(Icons.sync_rounded, size: 16),
-                        label: const Text('Sync Credentials'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: textColor,
-                          side: BorderSide(color: isDark ? SaaSTheme.borderDark : SaaSTheme.borderLight),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        try {
-                          ClerkAuth.of(context, listen: false).signOut();
-                        } catch (_) {}
-                      },
-                      icon: const Icon(Icons.logout_rounded, size: 16),
-                      label: const Text('Sign Out'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent.withValues(alpha: 0.15),
-                        foregroundColor: Colors.redAccent,
-                        elevation: 0,
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
