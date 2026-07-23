@@ -523,11 +523,11 @@ class _MigrationStepOnePageState extends State<MigrationStepOnePage>
                   ),
                   if (!isWide)
                     Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                      height: 32,
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      height: 40,
                       decoration: BoxDecoration(
                         color: isDark ? const Color(0xFF0F1E1B) : const Color(0xFFE8F0EE),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: isDark ? const Color(0xFF1B3833) : const Color(0xFFD4E2DF),
                         ),
@@ -538,10 +538,10 @@ class _MigrationStepOnePageState extends State<MigrationStepOnePage>
                         tabAlignment: TabAlignment.start,
                         dividerColor: Colors.transparent,
                         indicatorSize: TabBarIndicatorSize.tab,
-                        padding: const EdgeInsets.all(2),
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        padding: const EdgeInsets.all(3),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 10),
                         indicator: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           gradient: LinearGradient(
                             colors: isDark
                                 ? [const Color(0xFF00E6C3), const Color(0xFF00BFA5)]
@@ -550,17 +550,17 @@ class _MigrationStepOnePageState extends State<MigrationStepOnePage>
                         ),
                         labelColor: Colors.white,
                         unselectedLabelColor: isDark ? const Color(0xFFA3C2BE) : const Color(0xFF4B6560),
-                        labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                        unselectedLabelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+                        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                        unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                         tabs: const [
-                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.dashboard_rounded, size: 13), SizedBox(width: 4), Text('Dashboard')])),
-                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.description_rounded, size: 13), SizedBox(width: 4), Text('Analyzer')])),
-                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.auto_graph_rounded, size: 13), SizedBox(width: 4), Text('Citations')])),
-                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.search_rounded, size: 13), SizedBox(width: 4), Text('Gaps')])),
-                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.lightbulb_rounded, size: 13), SizedBox(width: 4), Text('Ideas')])),
-                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.dataset_rounded, size: 13), SizedBox(width: 4), Text('Datasets')])),
-                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.science_rounded, size: 13), SizedBox(width: 4), Text('Planner')])),
-                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.settings_rounded, size: 13), SizedBox(width: 4), Text('Settings')])),
+                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.dashboard_rounded, size: 15), SizedBox(width: 5), Text('Dashboard')])),
+                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.description_rounded, size: 15), SizedBox(width: 5), Text('Analyzer')])),
+                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.auto_graph_rounded, size: 15), SizedBox(width: 5), Text('Citations')])),
+                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.search_rounded, size: 15), SizedBox(width: 5), Text('Gaps')])),
+                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.lightbulb_rounded, size: 15), SizedBox(width: 5), Text('Ideas')])),
+                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.dataset_rounded, size: 15), SizedBox(width: 5), Text('Datasets')])),
+                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.science_rounded, size: 15), SizedBox(width: 5), Text('Planner')])),
+                          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.settings_rounded, size: 15), SizedBox(width: 5), Text('Settings')])),
                         ],
                       ),
                     ),

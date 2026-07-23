@@ -259,7 +259,7 @@ class AppSidebar extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                size: 18,
+                size: 19,
                 color: isSelected
                     ? activeColor
                     : (isDark ? SaaSTheme.textMutedDark : SaaSTheme.textMutedLight),
@@ -269,8 +269,8 @@ class AppSidebar extends StatelessWidget {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                     color: isSelected
                         ? activeColor
                         : (isDark ? SaaSTheme.textPrimaryDark : SaaSTheme.textPrimaryLight),
