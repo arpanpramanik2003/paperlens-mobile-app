@@ -20,8 +20,8 @@ import 'post_signin/feature_sections/planner_section.dart';
 import 'post_signin/feature_sections/problem_generator_tab.dart';
 import 'post_signin/feature_sections/settings_tab.dart';
 
-class MigrationStepOnePage extends StatefulWidget {
-  const MigrationStepOnePage({
+class AppShellPage extends StatefulWidget {
+  const AppShellPage({
     super.key,
     required this.isDarkMode,
     required this.onThemeChanged,
@@ -31,10 +31,10 @@ class MigrationStepOnePage extends StatefulWidget {
   final ValueChanged<bool> onThemeChanged;
 
   @override
-  State<MigrationStepOnePage> createState() => _MigrationStepOnePageState();
+  State<AppShellPage> createState() => _AppShellPageState();
 }
 
-class _MigrationStepOnePageState extends State<MigrationStepOnePage>
+class _AppShellPageState extends State<AppShellPage>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const _productionBaseUrl = 'https://paperlens-ai-phn3.onrender.com';
   static const _chatThreadsCacheKey = 'paperlens.chat_threads_by_doc.v1';

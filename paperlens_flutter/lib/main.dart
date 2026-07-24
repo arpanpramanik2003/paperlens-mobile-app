@@ -7,7 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'screens/auth_landing_page.dart';
 import 'screens/landing/landing_theme.dart';
-import 'screens/migration_step_one_page.dart';
+import 'screens/app_shell_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -200,7 +200,7 @@ class _PaperLensFlutterAppState extends State<PaperLensFlutterApp> {
       themeMode: _themeMode,
       home: ClerkAuthBuilder(
         signedInBuilder: (context, authState) {
-          return MigrationStepOnePage(
+          return AppShellPage(
             isDarkMode: _themeMode == ThemeMode.dark,
             onThemeChanged: (isDark) {
               _setThemeMode(isDark ? ThemeMode.dark : ThemeMode.light);
